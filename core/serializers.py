@@ -39,12 +39,24 @@ class SubCategorySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class ProductSerializer(serializers.ModelSerializer):
-    suggests = serializers.ReadOnlyField()
+class ReviewSerializer(serializers.ModelSerializer):
+    user = serializers.ReadOnlyField(source='user.fullname')
+    class Meta:
+        model = models.Review
+        fields = "__all__"
 
+
+class ProductSerializer(serializers.ModelSerializer):
+    # suggests = serializers.ReadOnlyField()
+    reviews = serializers.SerializerMethodField(read_only=True)
     class Meta:
         model = models.Product
         fields = '__all__'
+
+    def get_reviews(self, obj):
+        reviews = obj.review_set.all()
+        serializer = ReviewSerializer(reviews, many=True)
+        return serializer.data
 
 
 class ShippingAddressSerializer(serializers.ModelSerializer):

@@ -74,8 +74,8 @@ class Product(models.Model):
         get_user_model(), on_delete=models.SET_NULL, null=True)
     name = models.CharField(max_length=200, default='', blank=True)
     image1 = models.ImageField(upload_to='products/')
-    image2 = models.ImageField(null=True, blank=True)
-    image3 = models.ImageField(null=True, blank=True)
+    image2 = models.ImageField(null=True, blank=True, upload_to='products/')
+    image3 = models.ImageField(null=True, blank=True, upload_to='products/')
     brand = models.CharField(max_length=200, default='', blank=True)
     subCategory = models.ForeignKey(
         SubCategory, on_delete=models.SET_NULL, null=True)
