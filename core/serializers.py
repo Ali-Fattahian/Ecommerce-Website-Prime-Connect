@@ -20,7 +20,7 @@ class UserSerializerWithToken(UserSerializer):
 
     class Meta(UserSerializer.Meta):
         model = get_user_model()
-        fields = ('token',)
+        fields = ('id', 'token', 'fullname', 'isAdmin')
 
     def get_token(self, obj):
         token = RefreshToken.for_user(obj)
@@ -49,6 +49,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     # suggests = serializers.ReadOnlyField()
     reviews = serializers.SerializerMethodField(read_only=True)
+    subCategory = serializers.SerializerMethodField(read_only=True)
     class Meta:
         model = models.Product
         fields = '__all__'
@@ -58,11 +59,22 @@ class ProductSerializer(serializers.ModelSerializer):
         serializer = ReviewSerializer(reviews, many=True)
         return serializer.data
 
+    def get_subCategory(self, obj):
+        subCategory = obj.subCategory
+        serializer = SubCategorySerializer(subCategory)
+        return serializer.data
+
 
 class ShippingAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.ShippingAddress
         fields = '__all__'
+
+
+def brand_serializer(brandList):
+    return {
+        'brands': brandList
+    }
 
 
 class OrderItemSerializer(serializers.ModelSerializer):

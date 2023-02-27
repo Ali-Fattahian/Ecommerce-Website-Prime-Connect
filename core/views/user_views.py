@@ -1,4 +1,4 @@
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, filters
 from django.contrib.auth import get_user_model
 from core.serializers import UserSerializer, UserSerializerWithToken
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -22,7 +22,7 @@ class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
 
 
-class GetUserProfile(generics.RetrieveUpdateAPIView):
+class GetUserProfile(generics.RetrieveUpdateDestroyAPIView):
     queryset = get_user_model().objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -30,11 +30,27 @@ class GetUserProfile(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
+    def perform_destroy(self, instance):
+        if self.request.user.id == instance.id or self.request.user.is_staff:
+            return super().perform_destroy(instance)
+        message = {'detail': 'You don\'nt have the permission for this action'}
+        return Response(message, status=status.HTTP_401_UNAUTHORIZED)
+
+    def perform_update(self, serializer):
+        if self.request.user.id == serializer.id or self.request.user.is_staff:
+            return super().perform_update(serializer)
+        message = {'detail': 'You don\'nt have the permission for this action'}
+        return Response(message, status=status.HTTP_401_UNAUTHORIZED)
+
+
 
 class GetUsers(generics.ListAPIView):
     queryset = get_user_model().objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAdminUser]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ('fullname', 'email')
+    order_by = ('-id')
 
 
 @api_view(['POST'])
