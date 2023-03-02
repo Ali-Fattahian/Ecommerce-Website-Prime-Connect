@@ -1,4 +1,4 @@
-from rest_framework import generics, pagination, status
+from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.filters import SearchFilter, OrderingFilter
@@ -14,8 +14,8 @@ class ProductListView(generics.ListAPIView):
     search_fields = ['name', 'brand', 'subCategory__name', 'hasDiscount'] # Add exist(count is stock > 0)
     filterset_fields = ['name', 'brand', 'subCategory__name', 'hasDiscount'] # Add a price range filter
     ordering_fields = ['name', 'brand', 'subCategory', 'rating', 'price', 'discount', 'createdAt']
-    pagination_class = pagination.PageNumberPagination
-    page_size = 15
+    # pagination_class = pagination.PageNumberPagination
+    # page_size = 15
 
 
 class ProductDetailView(generics.RetrieveAPIView):

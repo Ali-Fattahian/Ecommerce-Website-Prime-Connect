@@ -13,14 +13,14 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_isAdmin(self, obj):
         return obj.is_staff
-
-
+    
+    
 class UserSerializerWithToken(UserSerializer):
     token = serializers.SerializerMethodField(read_only=True)
 
     class Meta(UserSerializer.Meta):
         model = get_user_model()
-        fields = ('id', 'token', 'fullname', 'isAdmin')
+        fields = ('id', 'token', 'fullname', 'isAdmin', 'email')
 
     def get_token(self, obj):
         token = RefreshToken.for_user(obj)

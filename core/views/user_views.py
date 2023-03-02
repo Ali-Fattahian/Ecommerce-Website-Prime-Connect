@@ -36,13 +36,6 @@ class GetUserProfile(generics.RetrieveUpdateDestroyAPIView):
         message = {'detail': 'You don\'nt have the permission for this action'}
         return Response(message, status=status.HTTP_401_UNAUTHORIZED)
 
-    def perform_update(self, serializer):
-        if self.request.user.id == serializer.id or self.request.user.is_staff:
-            return super().perform_update(serializer)
-        message = {'detail': 'You don\'nt have the permission for this action'}
-        return Response(message, status=status.HTTP_401_UNAUTHORIZED)
-
-
 
 class GetUsers(generics.ListAPIView):
     queryset = get_user_model().objects.all()
