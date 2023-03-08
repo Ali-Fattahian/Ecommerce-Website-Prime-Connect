@@ -50,6 +50,8 @@ class ProductSerializer(serializers.ModelSerializer):
     # suggests = serializers.ReadOnlyField()
     reviews = serializers.SerializerMethodField(read_only=True)
     subCategory = serializers.SerializerMethodField(read_only=True)
+    numReviews = serializers.SerializerMethodField(read_only=True)
+    
     class Meta:
         model = models.Product
         fields = '__all__'
@@ -63,6 +65,9 @@ class ProductSerializer(serializers.ModelSerializer):
         subCategory = obj.subCategory
         serializer = SubCategorySerializer(subCategory)
         return serializer.data
+
+    def get_numReviews(self, obj):
+        return obj.review_set.all().count()
 
 
 class ShippingAddressSerializer(serializers.ModelSerializer):

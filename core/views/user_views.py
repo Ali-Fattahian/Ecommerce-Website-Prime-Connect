@@ -1,4 +1,5 @@
 from rest_framework import generics, permissions, status, filters
+from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from core.serializers import UserSerializer, UserSerializerWithToken
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -27,9 +28,6 @@ class GetUserProfile(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_object(self):
-        return self.request.user
-
     def perform_destroy(self, instance):
         if self.request.user.id == instance.id or self.request.user.is_staff:
             return super().perform_destroy(instance)
@@ -51,7 +49,7 @@ def register_user(request):
     try:
         data = request.data
         user = get_user_model().objects.create_user(
-            email=data['email'], fullname=data['fullname'], password=data['password'])
+            email=data['email'], fullname=data['fullname'], password=data['password'], is_active=True)
 
         serializer = UserSerializerWithToken(user, many=False)
         return Response(serializer.data)
