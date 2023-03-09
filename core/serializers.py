@@ -89,20 +89,20 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    order_items = serializers.SerializerMethodField(read_only=True)
+    orderItems = serializers.SerializerMethodField(read_only=True)
     shippingAddress = serializers.SerializerMethodField(read_only=True)
     user = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = models.Order
-        fields = ('order_items', 'shippingAddress',
+        fields = ('id', 'orderItems', 'shippingAddress',
                   'user', 'paymentMethod',
                   'taxPrice', 'shippingPrice',
                   'totalPrice', 'isPaid', 'paidAt',
                   'isDelivered', 'deliveredAt',
                   'createdAt')
 
-    def get_order_items(self, obj):
+    def get_orderItems(self, obj):
         items = obj.orderitem_set.all()
         serializer = OrderItemSerializer(items, many=True)
         return serializer.data
@@ -110,7 +110,7 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_shippingAddress(self, obj):
         try:
             address = ShippingAddressSerializer(
-                obj.shippingAddress, many=False)
+                obj.shippingaddress, many=False)
             return address.data
         except:
             address = False
