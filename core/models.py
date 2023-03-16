@@ -139,7 +139,7 @@ class Order(models.Model):
     createdAt = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return str(self.createdAt)
+        return f'{self.user.fullname}\'s order, Price: {self.totalPrice}'
 
 
 class OrderItem(models.Model):

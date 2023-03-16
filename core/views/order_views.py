@@ -1,8 +1,10 @@
 from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, get_list_or_404
 from core import serializers, models
+import datetime
+import pytz
 
 
 class OrderListView(generics.ListAPIView):
@@ -53,3 +55,53 @@ def addOrderItems(request):
 
     serializer = serializers.OrderSerializer(order, many=False)
     return Response(serializer.data)
+
+
+@api_view(['PUT'])
+@permission_classes([permissions.IsAuthenticated])
+def update_order_to_paid(request, pk):
+    order = get_object_or_404(models.Order, pk=pk)
+    if request.user != order.user:
+        return Response({'detail': 'You don\'t have the permission to pay for this order'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    if request.data['totalPrice'] != str(order.totalPrice):
+        return Response({'detail': 'Total price of the order is not correct'}, status=status.HTTP_400_BAD_REQUEST)
+
+    order.isPaid = True
+
+    now_unaware = datetime.datetime.now()
+    now_aware = now_unaware.replace(tzinfo=pytz.UTC)
+    order.paidAt = now_aware
+
+    order.save()
+
+    return Response({'detail': 'Your payment was successful'}, status=status.HTTP_200_OK)
+
+
+class OrderDeleteView(generics.DestroyAPIView):
+    queryset = models.Order.objects.all()
+    serializer_class = serializers.OrderSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+
+class GetMyOrderView(generics.ListAPIView):
+    serializer_class = serializers.OrderSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return get_list_or_404(models.Order, user=self.request.user)
+
+
+@api_view(['PUT'])
+@permission_classes([permissions.IsAdminUser])
+def update_order_to_delivered(request, pk):
+    order = get_object_or_404(models.Order, pk=pk)
+    order.isDelivered = True
+
+    now_unaware = datetime.datetime.now()
+    now_aware = now_unaware.replace(tzinfo=pytz.UTC)
+    order.deliveredAt = now_aware
+
+    order.save()
+
+    return Response({'detail': f'Delivered at {order.deliveredAt}'}, status=status.HTTP_200_OK)
