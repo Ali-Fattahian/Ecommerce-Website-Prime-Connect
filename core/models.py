@@ -83,7 +83,6 @@ class Product(models.Model):
     moreDetails = models.TextField(default='', blank=True)
     rating = models.DecimalField(
         max_digits=7, decimal_places=2, null=True, blank=True)
-    numReviews = models.IntegerField(null=True, blank=True, default=0)
     price = models.DecimalField(
         max_digits=7, decimal_places=2, null=True, blank=True)
     countInStock = models.IntegerField(
