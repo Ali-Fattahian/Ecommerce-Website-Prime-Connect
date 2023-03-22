@@ -73,7 +73,7 @@ class Product(models.Model):
     user = models.ForeignKey(
         get_user_model(), on_delete=models.SET_NULL, null=True)
     name = models.CharField(max_length=200, default='', blank=True)
-    image1 = models.ImageField(upload_to='products/')
+    image1 = models.ImageField(upload_to='products/', default='products/default-image.png', blank=True)
     image2 = models.ImageField(null=True, blank=True, upload_to='products/')
     image3 = models.ImageField(null=True, blank=True, upload_to='products/')
     brand = models.CharField(max_length=200, default='', blank=True)
@@ -89,8 +89,8 @@ class Product(models.Model):
     countInStock = models.IntegerField(
         null=True, blank=True, default=0, validators=[MinValueValidator(0)])
     createdAt = models.DateTimeField(auto_now_add=True)
-    hasDiscount = models.BooleanField(default=False)
-    discount = models.IntegerField(null=True, blank=True, default=0, validators=[
+    hasDiscount = models.BooleanField(null=True, blank=True)
+    discount = models.IntegerField(blank=True, default=0, validators=[
                                    MinValueValidator(0), MaxValueValidator(99)])
 
     @property
