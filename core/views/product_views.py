@@ -38,6 +38,26 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
             return super().perform_update(serializer)
 
 
+class ProductEditView(generics.UpdateAPIView):
+    queryset = models.Product.objects.all()
+    serializer_class = serializers.ProductCreateChangeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        if instance.user == self.request.user or self.request.user.is_staff:
+            return super().perform_update(serializer)
+
+
+class ProductCreateView(generics.CreateAPIView):
+    queryset = models.Product.objects.all()
+    serializer_class = serializers.ProductCreateChangeSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
 class SubCategoryListView(generics.ListAPIView):
     queryset = models.SubCategory.objects.all()
     serializer_class = serializers.SubCategorySerializer

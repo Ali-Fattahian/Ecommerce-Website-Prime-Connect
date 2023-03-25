@@ -13,8 +13,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_isAdmin(self, obj):
         return obj.is_staff
-    
-    
+
+
 class UserSerializerWithToken(UserSerializer):
     token = serializers.SerializerMethodField(read_only=True)
 
@@ -41,6 +41,7 @@ class SubCategorySerializer(serializers.ModelSerializer):
 
 class ReviewSerializer(serializers.ModelSerializer):
     user = serializers.ReadOnlyField(source='user.fullname')
+
     class Meta:
         model = models.Review
         fields = "__all__"
@@ -49,9 +50,9 @@ class ReviewSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     # suggests = serializers.ReadOnlyField()
     reviews = serializers.SerializerMethodField(read_only=True)
-    subCategory = serializers.SerializerMethodField(read_only=True)
     numReviews = serializers.SerializerMethodField(read_only=True)
-    
+    subCategory = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = models.Product
         fields = '__all__'
@@ -61,13 +62,19 @@ class ProductSerializer(serializers.ModelSerializer):
         serializer = ReviewSerializer(reviews, many=True)
         return serializer.data
 
+    def get_numReviews(self, obj):
+        return obj.review_set.all().count()
+
     def get_subCategory(self, obj):
         subCategory = obj.subCategory
         serializer = SubCategorySerializer(subCategory)
         return serializer.data
+    
 
-    def get_numReviews(self, obj):
-        return obj.review_set.all().count()
+class ProductCreateChangeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.Product
+        fields = '__all__'
 
 
 class ShippingAddressSerializer(serializers.ModelSerializer):
