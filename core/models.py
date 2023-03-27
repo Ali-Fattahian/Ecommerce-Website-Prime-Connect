@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
 
 
 class CustomAccountManager(BaseUserManager):
@@ -66,14 +67,15 @@ class SubCategory(models.Model):
         return self.name
 
 
-# ==================================================================================       
+# ==================================================================================
 
 
 class Product(models.Model):
     user = models.ForeignKey(
         get_user_model(), on_delete=models.SET_NULL, null=True)
     name = models.CharField(max_length=200, default='', blank=True)
-    image1 = models.ImageField(upload_to='products/', default='products/default-image.png', blank=True)
+    image1 = models.ImageField(
+        upload_to='products/', default='products/default-image.png', blank=True)
     image2 = models.ImageField(null=True, blank=True, upload_to='products/')
     image3 = models.ImageField(null=True, blank=True, upload_to='products/')
     brand = models.CharField(max_length=200, default='', blank=True)
@@ -110,20 +112,29 @@ class Product(models.Model):
 class Review(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    rating = models.IntegerField(default=0, blank=True, null=True)
+    rating = models.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)])
     comment = models.TextField(default='', blank=True)
     createdAt = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        if self.rating < 1:
+            raise ValidationError(
+                _('Rating number equal can not be less than 1.'))
+        if self.rating > 5:
+            raise ValidationError(
+                _('Rating number equal can not be more than 5.'))
 
     def __str__(self):
         return str(self.rating)
 
-    
+
 # ==================================================================================
 
 
 class Order(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
-    paymentMethod = models.CharField(max_length=200, default='', blank=True)
+    paymentMethod = models.CharField(max_length=200, default='paypal', blank=True)
     taxPrice = models.DecimalField(
         max_digits=7, decimal_places=2, null=True, blank=True)
     shippingPrice = models.DecimalField(
