@@ -123,13 +123,13 @@ class TestProduct(TestCase):
 
     def test_product_without_user(self):
         """Product can be created without a user"""
-        new_product = Product.objects.create(name='new product',
-                                                  description=self.description,
-                                                  brand='Amazon',
-                                                  subCategory=self.sub_category,
-                                                  price=499,
-                                                  countInStock=12)
-        self.assertIsInstance(new_product, Product)
+        with self.assertRaises(IntegrityError):
+            Product.objects.create(name='new product',
+                                                    description=self.description,
+                                                    brand='Amazon',
+                                                    subCategory=self.sub_category,
+                                                    price=499,
+                                                    countInStock=12)
 
     def test_product_default_image(self):
         """Check if the name of image1 is default-image.png if nothing was provided"""

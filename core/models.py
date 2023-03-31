@@ -72,7 +72,7 @@ class SubCategory(models.Model):
 
 class Product(models.Model):
     user = models.ForeignKey(
-        get_user_model(), on_delete=models.SET_NULL, null=True)
+        get_user_model(), on_delete=models.CASCADE)
     name = models.CharField(max_length=200, default='', blank=True)
     image1 = models.ImageField(
         upload_to='products/', default='products/default-image.png', blank=True)

@@ -2,6 +2,8 @@ from rest_framework import generics, permissions, status, filters
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 from core.serializers import UserSerializer, UserSerializerWithToken
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -29,6 +31,10 @@ class GetUserProfile(generics.RetrieveDestroyAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    # def handle_exception(self, exc):
+    #     except
+    #     return super().handle_exception(exc)
+
     def perform_destroy(self, instance):
         if self.request.user.id == instance.id or self.request.user.is_staff:
             return super().perform_destroy(instance)
@@ -40,13 +46,26 @@ class GetUserProfile(generics.RetrieveDestroyAPIView):
 @permission_classes([permissions.IsAuthenticated])
 def update_user_profile(request, pk):
     user = get_object_or_404(get_user_model(), id=pk)
-    if request.user.id != user.id or request.user.is_staff == False:
-        return Response({'detail': 'You don\'nt have the permission for this request'}, status=status.HTTP_401_UNAUTHORIZED)
+    if request.user.is_staff == False:
+        if request.user.id != user.id:
+            return Response({'detail': 'You don\'nt have the permission for this request'}, status=status.HTTP_401_UNAUTHORIZED)
 
     serializer = UserSerializerWithToken(user, many=False)
 
-    user.fullname = request.data.get('fullname', user.fullname)
-    user.email = request.data.get('email', user.email)
+    fullname = request.data.get('fullname')
+    email = request.data.get('email')
+
+    if len(fullname) > 0:
+        user.fullname = fullname
+    else:
+        return Response({'detail': 'Fullname must not be empty'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        validate_email(email)
+    except ValidationError as e:
+        return Response({'detail': e}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        user.email = email
 
     if request.data['password'] != '':
         user.password = make_password(request.data['password'])
