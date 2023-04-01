@@ -36,10 +36,10 @@ class GetUserProfile(generics.RetrieveDestroyAPIView):
     #     return super().handle_exception(exc)
 
     def perform_destroy(self, instance):
-        if self.request.user.id == instance.id or self.request.user.is_staff:
-            return super().perform_destroy(instance)
-        message = {'detail': 'You don\'nt have the permission for this action'}
-        return Response(message, status=status.HTTP_401_UNAUTHORIZED)
+        if self.request.user.is_staff == False:  
+            if self.request.user.id != instance.id:
+                 return Response({'detail': 'You don\'nt have the permission for this action'}, status=status.HTTP_401_UNAUTHORIZED)
+        return super().perform_destroy(instance)
 
 
 @api_view(['PUT'])
