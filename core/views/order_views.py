@@ -13,7 +13,7 @@ class OrderListView(generics.ListAPIView):
     permission_classes = [permissions.IsAdminUser]
 
 
-class getOrderView(generics.RetrieveAPIView):
+class GetOrderView(generics.RetrieveAPIView):
     queryset = models.Order.objects.all()
     serializer_class = serializers.OrderSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -31,30 +31,33 @@ def addOrderItems(request):
     user = request.user
     data = request.data
 
-    orderItems = data['orderItems']
+    try:
+        orderItems = data['orderItems']
 
-    if orderItems and len(orderItems) == 0:
-        return Response({'detail': 'No Order Items'}, status=status.HTTP_400_BAD_REQUEST)
-    else:
-        order = models.Order.objects.create(user=user, paymentMethod=data['paymentMethod'],
-                                            taxPrice=data['taxPrice'], shippingPrice=data['shippingPrice'],
-                                            totalPrice=data['totalPrice'])
+        if orderItems and len(orderItems) == 0:
+            return Response({'detail': 'No Order Items'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            order = models.Order.objects.create(user=user, paymentMethod=data['paymentMethod'],
+                                                taxPrice=data['taxPrice'], shippingPrice=data['shippingPrice'],
+                                                totalPrice=data['totalPrice'])
 
-        models.ShippingAddress.objects.create(order=order, address=data['shippingAddress']['address'],
-                                              city=data['shippingAddress']['city'],
-                                              postalCode=data['shippingAddress']['postalCode'],
-                                              country=data['shippingAddress']['country'])
+            models.ShippingAddress.objects.create(order=order, address=data['shippingAddress']['address'],
+                                                  city=data['shippingAddress']['city'],
+                                                  postalCode=data['shippingAddress']['postalCode'],
+                                                  country=data['shippingAddress']['country'])
 
-        for orderItem in orderItems:
-            product = models.Product.objects.get(id=orderItem['id'])
-            item = models.OrderItem.objects.create(product=product, order=order,
-                                                   name=product.name, qty=orderItem['productQuantity'],
-                                                   price=orderItem['price'], image=product.image1.url)
-            product.countInStock -= item.qty
-            product.save()
+            for orderItem in orderItems:
+                product = models.Product.objects.get(id=orderItem['id'])
+                item = models.OrderItem.objects.create(product=product, order=order,
+                                                       name=product.name, qty=orderItem['productQuantity'],
+                                                       price=orderItem['price'], image=product.image1.url)
+                product.countInStock -= item.qty
+                product.save()
 
-    serializer = serializers.OrderSerializer(order, many=False)
-    return Response(serializer.data)
+        serializer = serializers.OrderSerializer(order, many=False)
+        return Response(serializer.data)
+    except:
+        return Response({'detail': 'All the fields must be provided'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['PUT'])
@@ -64,7 +67,12 @@ def update_order_to_paid(request, pk):
     if request.user != order.user:
         return Response({'detail': 'You don\'t have the permission to pay for this order'}, status=status.HTTP_401_UNAUTHORIZED)
 
-    if request.data['totalPrice'] != str(order.totalPrice):
+    try:
+        totalPrice = request.data['totalPrice']
+    except:
+        return Response({'detail': 'Total price was\'nt provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if totalPrice != str(order.totalPrice):
         return Response({'detail': 'Total price of the order is not correct'}, status=status.HTTP_400_BAD_REQUEST)
 
     order.isPaid = True

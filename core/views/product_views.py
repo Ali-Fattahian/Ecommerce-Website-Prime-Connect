@@ -25,7 +25,7 @@ class ProductListView(generics.ListAPIView):
     # page_size = 15
 
 
-class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
+class ProductDetailView(generics.RetrieveDestroyAPIView):
     queryset = models.Product.objects.all()
     serializer_class = serializers.ProductSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
@@ -33,11 +33,6 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     def perform_destroy(self, instance):
         if instance.user == self.request.user or self.request.user.is_staff:
             return super().perform_destroy(instance)
-
-    def perform_update(self, serializer):
-        instance = self.get_object()
-        if instance.user == self.request.user or self.request.user.is_staff:
-            return super().perform_update(serializer)
 
 
 class ProductEditView(generics.UpdateAPIView):
@@ -47,9 +42,8 @@ class ProductEditView(generics.UpdateAPIView):
 
     def perform_update(self, serializer):
         instance = self.get_object()
-        if self.request.user.is_staff == False:
-            if self.request.user.id != instance.user.id:
-                return Response({'detail': 'You don\'nt have the permission for this request'}, status=status.HTTP_401_UNAUTHORIZED)
+        if self.request.user.is_staff == False or self.request.user.id != instance.user.id:
+            return Response({'detail': 'You don\'nt have the permission for this request'}, status=status.HTTP_401_UNAUTHORIZED)
         return super().perform_update(serializer)
 
 
@@ -120,9 +114,9 @@ def review_create(request, product_id):
 def delete_product_images(request, pk):
     """{image1: True, image3: True}, Means set image1, image3 to empty, Don't change image2"""
     product = get_object_or_404(models.Product, pk=pk)
-    if request.user.is_staff == False:
-        if request.user.id != product.user.id:
-            return Response({'detail': 'You don\'nt have the permission for this request'}, status=status.HTTP_401_UNAUTHORIZED)
+    if request.user.is_staff == False or request.user.id != product.user.id:
+        return Response({'detail': 'You don\'nt have the permission for this request'}, status=status.HTTP_401_UNAUTHORIZED)
+
     if request.data.get('image1'):
         with open(f'{settings.BASE_DIR}/media/products/default-image.png', 'rb') as local_file:
             django_file = File(local_file)

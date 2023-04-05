@@ -36,9 +36,8 @@ class GetUserProfile(generics.RetrieveDestroyAPIView):
     #     return super().handle_exception(exc)
 
     def perform_destroy(self, instance):
-        if self.request.user.is_staff == False:  
-            if self.request.user.id != instance.id:
-                 return Response({'detail': 'You don\'nt have the permission for this action'}, status=status.HTTP_401_UNAUTHORIZED)
+        if self.request.user.is_staff == False or self.request.user.id != instance.id:
+            return Response({'detail': 'You don\'nt have the permission for this action'}, status=status.HTTP_401_UNAUTHORIZED)
         return super().perform_destroy(instance)
 
 
@@ -46,16 +45,15 @@ class GetUserProfile(generics.RetrieveDestroyAPIView):
 @permission_classes([permissions.IsAuthenticated])
 def update_user_profile(request, pk):
     user = get_object_or_404(get_user_model(), id=pk)
-    if request.user.is_staff == False:
-        if request.user.id != user.id:
-            return Response({'detail': 'You don\'nt have the permission for this request'}, status=status.HTTP_401_UNAUTHORIZED)
+    if request.user.is_staff == False or request.user.id != user.id:
+        return Response({'detail': 'You don\'nt have the permission for this request'}, status=status.HTTP_401_UNAUTHORIZED)
 
     serializer = UserSerializerWithToken(user, many=False)
 
     fullname = request.data.get('fullname')
     email = request.data.get('email')
 
-    if len(fullname) > 0:
+    if fullname and len(fullname) > 0:
         user.fullname = fullname
     else:
         return Response({'detail': 'Fullname must not be empty'}, status=status.HTTP_400_BAD_REQUEST)
@@ -67,7 +65,7 @@ def update_user_profile(request, pk):
     else:
         user.email = email
 
-    if request.data['password'] != '':
+    if request.data.get('password') and request.data['password'] != '':
         user.password = make_password(request.data['password'])
 
     user.save()
@@ -86,9 +84,13 @@ class GetUsers(generics.ListAPIView):
 @api_view(['POST'])
 def register_user(request):
     try:
+        validate_email(request.data.get('email'))
+    except ValidationError as e:
+        return Response({'detail': e}, status=status.HTTP_400_BAD_REQUEST)
+    try:
         data = request.data
         user = get_user_model().objects.create_user(
-            email=data['email'], fullname=data['fullname'], password=data['password'], is_active=True)
+            email=data.get('email'), fullname=data.get('fullname'), password=data.get('password'), is_active=True)
 
         serializer = UserSerializerWithToken(user, many=False)
         return Response(serializer.data)
