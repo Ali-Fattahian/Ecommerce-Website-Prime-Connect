@@ -4,11 +4,12 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
-from core.serializers import UserSerializer, UserSerializerWithToken
+from core.serializers import UserSerializer, UserSerializerWithToken, MessageSerializer
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from core.models import Message
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -98,3 +99,87 @@ def register_user(request):
     except:
         message = {'detail': 'User with this email already exists'}
         return Response(message, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GetAdminUsers(generics.ListAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_queryset(self):
+        return get_user_model().objects.filter(
+            is_staff=True).order_by('-join_date').exclude(email=self.request.user.email)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAdminUser])
+def send_message(request):
+    try:
+        recipient = get_object_or_404(
+            get_user_model(), id=request.data['recipient'])
+        content = request.data['content']
+        message = Message.objects.create(sender=request.user, recipient=recipient, content=content)
+    except:
+        return Response({'detail': 'Please fill all the fields'}, status=status.HTTP_400_BAD_REQUEST)
+    serializer = MessageSerializer(message)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class AllReceivedMessages(generics.ListAPIView):
+    serializer_class = MessageSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_queryset(self):
+        return Message.objects.filter(recipient=self.request.user)
+    
+
+class AllSentMessages(generics.ListAPIView):
+    serializer_class = MessageSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_queryset(self):
+        return Message.objects.filter(sender=self.request.user)
+
+
+class ReceivedMessageDetail(generics.RetrieveAPIView):
+    queryset = Message.objects.all()
+    serializer_class = MessageSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_object(self):
+        pk = self.kwargs.get('pk')
+        message = get_object_or_404(Message, pk=pk)
+        if self.request.user == message.recipient:
+            message.isRead = True
+            message.save()
+            return message
+        
+
+class SentMessageDetail(generics.RetrieveAPIView):
+    queryset = Message.objects.all()
+    serializer_class = MessageSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_object(self):
+        pk = self.kwargs.get('pk')
+        message = get_object_or_404(Message, pk=pk)
+        if self.request.user == message.sender:
+            message.isRead = True
+            message.save()
+            return message
+
+
+@api_view(['PUT'])
+@permission_classes([permissions.IsAdminUser])
+def change_message_status(request, pk):
+    # try:
+    message = get_object_or_404(Message, pk=pk)
+    if request.user == message.recipient:
+        isRead = request.data['isRead']
+        print(isRead)
+        message.isRead = isRead
+        message.save()
+        serializer = MessageSerializer(message)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    return Response({'detail': 'You don\'nt have the permission for this action'}, status=status.HTTP_401_UNAUTHORIZED)
+    # except:
+        # return Response({'detail': 'An error occured while processing your request'}, status=status.HTTP_400_BAD_REQUEST)

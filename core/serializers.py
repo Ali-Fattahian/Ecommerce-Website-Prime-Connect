@@ -69,7 +69,7 @@ class ProductSerializer(serializers.ModelSerializer):
         subCategory = obj.subCategory
         serializer = SubCategorySerializer(subCategory)
         return serializer.data
-    
+
 
 class ProductCreateChangeSerializer(serializers.ModelSerializer):
     class Meta:
@@ -127,3 +127,12 @@ class OrderSerializer(serializers.ModelSerializer):
         user = obj.user
         serializer = UserSerializer(user, many=False)
         return serializer.data
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    sender = UserSerializer()
+    recipient = UserSerializer()
+
+    class Meta:
+        model = models.Message
+        fields = '__all__'

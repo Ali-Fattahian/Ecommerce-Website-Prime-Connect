@@ -1391,3 +1391,41 @@ class TestUpdateOrderToDelivered(APITestCase):
         self.assertEqual(get_response.status_code, 405)
         self.assertEqual(patch_response.status_code, 405)
         self.assertEqual(post_response.status_code, 405)
+
+
+# class TestSendMessage(APITestCase):
+#     def setUp(self):
+#         self.password = 'a12341234'
+#         self.email = 'test_user@gmail.com'
+#         self.new_user = get_user_model().objects.create_user(
+#             email=self.email, fullname='Test User', password=self.password, is_active=True, is_staff=True)
+
+#         self.order = Order.objects.create(user=self.new_user, paymentMethod='paymentmethod',
+#                                           taxPrice=50, shippingPrice=40, totalPrice=400)
+#         self.new_user_2 = get_user_model().objects.create_user(
+#             email='test_user2@gmail.com', fullname='Test User2', password=self.password, is_active=True)
+#         self.new_user_3 = get_user_model().objects.create_user(
+
+#             email='test_user3@gmail.com', fullname='Test User3', password=self.password, is_active=True, is_staff=True)
+
+#         login_response = self.client.post(reverse('token_obtain_pair'), data={
+#             'email': self.email, 'password': self.password})
+#         self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
+#             'email': 'test_user2@gmail.com', 'password': self.password})
+#         self.token = login_response.json()['token']
+#         self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+
+#     def test_send_message_success(self):
+#         response = self.client.post(reverse('send-message'), data={
+#             'recipients': [
+#                 self.new_user_2.id,
+#                 self.new_user_3.id,
+#             ],
+#             'text': 'test message'
+#         }, format='json', **self.headers)
+#         self.assertEqual(response.status_code, 201)
+#         self.assertEqual(response.json()['text'], 'test message')
+#         # self.assertEqual(response.json()['sender'], self.new_user.id)
+#         self.assertEqual(len(response.json()['recipients']), 2)
+        # self.assertEqual(response.json()['recipients'][0], str(self.new_user_2.id))
+        # self.assertEqual(response.json()['recipients'][1], str(self.new_user_3.id))

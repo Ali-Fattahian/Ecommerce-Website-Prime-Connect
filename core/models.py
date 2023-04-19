@@ -47,6 +47,10 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
 
+    class Meta:
+        verbose_name = 'User'
+        verbose_name_plural = 'Users'
+
 
 # ==================================================================================
 
@@ -134,7 +138,8 @@ class Review(models.Model):
 
 class Order(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
-    paymentMethod = models.CharField(max_length=200, default='paypal', blank=True)
+    paymentMethod = models.CharField(
+        max_length=200, default='paypal', blank=True)
     taxPrice = models.DecimalField(
         max_digits=7, decimal_places=2, null=True, blank=True)
     shippingPrice = models.DecimalField(
@@ -152,6 +157,9 @@ class Order(models.Model):
         return f'{self.user.fullname}\'s order, Price: {self.totalPrice}'
 
 
+# ==================================================================================
+
+
 class OrderItem(models.Model):
     product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True)
     order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True)
@@ -163,6 +171,9 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return str(self.name)
+
+
+# ==================================================================================
 
 
 class ShippingAddress(models.Model):
@@ -177,3 +188,77 @@ class ShippingAddress(models.Model):
 
     def __str__(self):
         return str(self.address)
+
+
+# ==================================================================================
+
+# class MessageThroughModel(models.Model):
+#     message = models.ForeignKey('Message', on_delete=models.CASCADE)
+#     AdminMessage = models.ForeignKey('AdminMessage', on_delete=models.CASCADE)
+
+
+# class Message(models.Model):
+#     text = models.TextField(max_length=450)
+#     createdAt = models.DateTimeField(auto_now_add=True)
+#     is_read = models.BooleanField(default=False, blank=True)
+
+
+# class AdminMessage(models.Model):
+#     recipients = models.ManyToManyField(
+#         get_user_model(), related_name='recieved_messages')
+#     sender = models.ForeignKey(
+#         get_user_model(), on_delete=models.CASCADE, related_name='sent_messages')
+#     messages = models.ManyToManyField(Message)
+
+#     def __str__(self):
+#         return f'Message sent by {self.sender.fullname} on {self.createdAt}'
+
+# class Message(models.Model):
+#     user = models.ForeignKey(
+#         get_user_model(), on_delete=models.CASCADE, related_name='user')
+#     sender = models.ForeignKey(
+#         get_user_model(), on_delete=models.CASCADE, related_name='from_user')
+#     recipient = models.ForeignKey(
+#         get_user_model(), on_delete=models.CASCADE, related_name='to_user')
+#     body = models.TextField(max_length=450)
+#     date = models.DateTimeField(auto_now_add=True)
+#     is_read = models.BooleanField(default=False)
+
+#     def send_message(from_user, to_user, body):
+#         sender_message = Message(
+#             user=from_user, sender=from_user, recipient=to_user, body=body, is_read=True)
+#         sender_message.save()
+
+#         recipient_message = Message(
+#             user=to_user, sender=from_user, recipient=from_user, body=body, is_read=True)
+#         recipient_message.save()
+
+#         return sender_message
+
+#     def get_message(user):
+#         users = []
+#         messages = Message.objects.filter(user=user).values(
+#             'recipient').annotate(last=Max('date')).order_by('-last')
+#         # filter by user=the login user, recipient=the sender, the lastest message from each sender, order the lastest message by sender using time
+
+#         for message in messages:
+#             users.append({
+#                 'user': get_user_model().objects.get(pk=message['recipient']),
+#                 'last': message['last'],
+#                 'unread': Message.objects.filter(user=user, recipient__pk=message['recipient'], is_read=False).count(),
+#             })
+
+#         return users
+
+
+class Message(models.Model):
+    content = models.TextField(verbose_name='content')
+    recipient = models.ForeignKey(
+        get_user_model(), related_name='recipient', on_delete=models.CASCADE)
+    sender = models.ForeignKey(
+        get_user_model(), related_name='sender', on_delete=models.CASCADE)
+    createdAt = models.DateTimeField(auto_now_add=True)
+    isRead = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f'From {self.sender} to {self.recipient}'
