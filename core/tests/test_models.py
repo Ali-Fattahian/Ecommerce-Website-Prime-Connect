@@ -5,7 +5,8 @@ from decimal import DecimalException
 from core.models import (Product, SubCategory,
                          Review, Category,
                          Order, OrderItem,
-                         ShippingAddress)
+                         ShippingAddress, Message)
+from django.core.exceptions import ValidationError
 
 
 class TestUserCreation(TestCase):
@@ -125,11 +126,11 @@ class TestProduct(TestCase):
         """Product can be created without a user"""
         with self.assertRaises(IntegrityError):
             Product.objects.create(name='new product',
-                                                    description=self.description,
-                                                    brand='Amazon',
-                                                    subCategory=self.sub_category,
-                                                    price=499,
-                                                    countInStock=12)
+                                   description=self.description,
+                                   brand='Amazon',
+                                   subCategory=self.sub_category,
+                                   price=499,
+                                   countInStock=12)
 
     def test_product_default_image(self):
         """Check if the name of image1 is default-image.png if nothing was provided"""
@@ -431,3 +432,58 @@ class TestShippingAddress(TestCase):
             ShippingAddress.objects.create(address='testaddress', city='testcity',
                                            postalCode=1234, country='testcountry',
                                            order=order, shippingPrice=100000)
+
+    def test_shipping_address_deleted_after_order(self):
+        """Test shipping address object gets deleted after deleting the related order"""
+        self.new_order.delete()
+        query_result = ShippingAddress.objects.filter(
+            address='testaddress', city='testcity')
+        self.assertEqual(len(query_result), 0)
+
+
+class TestMessageModel(TestCase):
+    def setUp(self):
+        self.sender = get_user_model().objects.create_user(
+            email='test_user@gmail.com', fullname='Test User', password='a12341234')
+        self.recipient = get_user_model().objects.create_user(
+            email='test_user2@gmail.com', fullname='Test User 2', password='a12341234')
+        self.content = 'Test Content'
+        self.new_message = Message.objects.create(
+            content=self.content, sender=self.sender, recipient=self.recipient)
+
+    def test_message_exists(self):
+        self.assertIsInstance(self.new_message, Message)
+
+    def test_message_fields(self):
+        self.assertEqual(self.new_message.content, self.content)
+        self.assertEqual(self.new_message.sender, self.sender)
+        self.assertEqual(self.new_message.recipient, self.recipient)
+        self.assertEqual(self.new_message.isRead, False)
+
+    def test_message_fails_no_content(self):
+        with self.assertRaises(ValidationError):
+            Message.objects.create(
+                sender=self.sender, recipient=self.recipient)
+
+    def test_message_fails_no_sender(self):
+        with self.assertRaises(IntegrityError):
+            Message.objects.create(content=self.content,
+                                   recipient=self.recipient)
+
+    def test_message_fails_no_recipient(self):
+        with self.assertRaises(IntegrityError):
+            Message.objects.create(content=self.content, sender=self.sender)
+
+    def test_message_deleted_after_sender(self):
+        """Test deleting sender also deletes the message"""
+        self.sender.delete()
+        query_results = Message.objects.filter(
+            content=self.content, recipient=self.recipient)
+        self.assertEqual(len(query_results), 0)
+
+    def test_message_deleted_after_recipient(self):
+        """Test deleting recipient also deletes the message"""
+        self.recipient.delete()
+        query_results = Message.objects.filter(
+            content=self.content, sender=self.sender)
+        self.assertEqual(len(query_results), 0)

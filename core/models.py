@@ -260,5 +260,10 @@ class Message(models.Model):
     createdAt = models.DateTimeField(auto_now_add=True)
     isRead = models.BooleanField(default=False)
 
+    def save(self, *args, **kwargs):
+        if len(self.content) == 0:
+            raise ValidationError('Your message should have content')
+        super(Message, self).save(*args, **kwargs)
+
     def __str__(self):
         return f'From {self.sender} to {self.recipient}'

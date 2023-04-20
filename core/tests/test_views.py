@@ -1,7 +1,7 @@
 from rest_framework.test import APITestCase
 from django.contrib.auth import get_user_model
 from django.urls import reverse
-from core.models import Product, SubCategory, Order
+from core.models import Product, SubCategory, Order, Message
 
 
 class TestLoginRoute(APITestCase):
@@ -1393,39 +1393,477 @@ class TestUpdateOrderToDelivered(APITestCase):
         self.assertEqual(post_response.status_code, 405)
 
 
-# class TestSendMessage(APITestCase):
-#     def setUp(self):
-#         self.password = 'a12341234'
-#         self.email = 'test_user@gmail.com'
-#         self.new_user = get_user_model().objects.create_user(
-#             email=self.email, fullname='Test User', password=self.password, is_active=True, is_staff=True)
+class TestSendMessage(APITestCase):
+    def setUp(self):
+        self.password = 'a12341234'
+        self.email = 'test_user@gmail.com'
+        self.new_user = get_user_model().objects.create_user(
+            email=self.email, fullname='Test User', password=self.password, is_active=True, is_staff=True)
 
-#         self.order = Order.objects.create(user=self.new_user, paymentMethod='paymentmethod',
-#                                           taxPrice=50, shippingPrice=40, totalPrice=400)
-#         self.new_user_2 = get_user_model().objects.create_user(
-#             email='test_user2@gmail.com', fullname='Test User2', password=self.password, is_active=True)
-#         self.new_user_3 = get_user_model().objects.create_user(
+        self.new_user_2 = get_user_model().objects.create_user(
+            email='test_user2@gmail.com', fullname='Test User2', password=self.password, is_active=True)
 
-#             email='test_user3@gmail.com', fullname='Test User3', password=self.password, is_active=True, is_staff=True)
+        self.new_user_3 = get_user_model().objects.create_user(
+            email='test_user3@gmail.com', fullname='Test User3', password=self.password, is_active=True, is_staff=True)
 
-#         login_response = self.client.post(reverse('token_obtain_pair'), data={
-#             'email': self.email, 'password': self.password})
-#         self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
-#             'email': 'test_user2@gmail.com', 'password': self.password})
-#         self.token = login_response.json()['token']
-#         self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+        login_response = self.client.post(reverse('token_obtain_pair'), data={
+            'email': self.email, 'password': self.password})
+        self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
+            'email': 'test_user2@gmail.com', 'password': self.password})
+        self.token = login_response.json()['token']
+        self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
 
-#     def test_send_message_success(self):
-#         response = self.client.post(reverse('send-message'), data={
-#             'recipients': [
-#                 self.new_user_2.id,
-#                 self.new_user_3.id,
-#             ],
-#             'text': 'test message'
-#         }, format='json', **self.headers)
-#         self.assertEqual(response.status_code, 201)
-#         self.assertEqual(response.json()['text'], 'test message')
-#         # self.assertEqual(response.json()['sender'], self.new_user.id)
-#         self.assertEqual(len(response.json()['recipients']), 2)
-        # self.assertEqual(response.json()['recipients'][0], str(self.new_user_2.id))
-        # self.assertEqual(response.json()['recipients'][1], str(self.new_user_3.id))
+    def test_send_message_route_success(self):
+        response = self.client.post(reverse('send-message'), data={
+            'recipient':
+                self.new_user_3.id,
+            'content': 'test message'
+        }, format='json', **self.headers)
+
+        self.assertEqual(response.status_code, 201)
+
+    def test_send_message_success_content(self):
+        response = self.client.post(reverse('send-message'), data={
+            'recipient':
+                self.new_user_3.id,
+            'content': 'test message'
+        }, format='json', **self.headers)
+
+        self.assertEqual(response.json()['content'], 'test message')
+        self.assertEqual(
+            response.json()['recipient']['email'], self.new_user_3.email)
+        self.assertEqual(
+            response.json()['recipient']['fullname'], self.new_user_3.fullname)
+        self.assertEqual(
+            response.json()['recipient']['isAdmin'], self.new_user_3.is_staff)
+        self.assertEqual(
+            response.json()['sender']['email'], self.new_user.email)
+        self.assertEqual(
+            response.json()['sender']['fullname'], self.new_user.fullname)
+        self.assertEqual(
+            response.json()['sender']['isAdmin'], self.new_user.is_staff)
+
+    def test_send_message_fails_no_auth(self):
+        response = self.client.post(reverse('send-message'), data={
+            'recipient':
+                self.new_user_3.id,
+            'content': 'test message'
+        }, format='json')
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_send_message_fails_no_staff_sender(self):
+        """Only staff members can send messages"""
+        token = self.login_response_2.json()['token']
+        headers = {'HTTP_AUTHORIZATION': f'JWT {token}'}
+
+        response = self.client.post(reverse('send-message'), data={
+            'recipient':
+                self.new_user_3.id,
+            'content': 'test message'
+        }, format='json', **headers)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_send_message_fails_no_staff_recipient(self):
+        """Only staff members can receive messages"""
+        response = self.client.post(reverse('send-message'), data={
+            'recipient':
+                self.new_user_2.id,
+            'content': 'test message'
+        }, format='json', **self.headers)
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_send_message_fails_content_field_not_provided(self):
+        response = self.client.post(reverse('send-message'), data={
+            'recipient':
+                self.new_user_3.id,
+        }, format='json', **self.headers)
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_send_message_fails_recipient_field_not_provided(self):
+        response = self.client.post(reverse('send-message'), data={
+            'content': 'test message'
+        }, format='json', **self.headers)
+
+        self.assertEqual(response.status_code, 400)
+
+
+class TestAllReceivedMessages(APITestCase):
+    def setUp(self):
+        self.password = 'a12341234'
+        self.email = 'test_user@gmail.com'
+        self.new_user = get_user_model().objects.create_user(
+            email=self.email, fullname='Test User', password=self.password, is_active=True, is_staff=True)
+
+        self.new_user_2 = get_user_model().objects.create_user(
+            email='test_user2@gmail.com', fullname='Test User2', password=self.password, is_active=True, is_staff=True)
+
+        login_response = self.client.post(reverse('token_obtain_pair'), data={
+            'email': self.email, 'password': self.password})
+        self.token = login_response.json()['token']
+        self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+
+        self.message_1 = Message.objects.create(sender=self.new_user_2,
+                                                recipient=self.new_user, content='test message')
+        self.message_2 = Message.objects.create(sender=self.new_user_2,
+                                                recipient=self.new_user, content='test message 2')
+
+    def test_all_received_messages_route_success(self):
+        response = self.client.get(
+            reverse('received-messages'), **self.headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_all_received_messages_success_content(self):
+        response = self.client.get(
+            reverse('received-messages'), **self.headers)
+        self.assertEqual(len(response.json()), 2)
+        self.assertEqual(
+            response.json()[0]['sender']['email'], self.new_user_2.email)
+        self.assertEqual(
+            response.json()[0]['sender']['fullname'], self.new_user_2.fullname)
+        self.assertEqual(
+            response.json()[0]['sender']['isAdmin'], self.new_user_2.is_staff)
+        self.assertEqual(
+            response.json()[0]['recipient']['email'], self.new_user.email)
+        self.assertEqual(
+            response.json()[0]['recipient']['fullname'], self.new_user.fullname)
+        self.assertEqual(
+            response.json()[0]['recipient']['isAdmin'], self.new_user.is_staff)
+        self.assertEqual(response.json()[0]['content'], 'test message')
+        self.assertEqual(response.json()[0]['isRead'], False)
+        self.assertEqual(
+            response.json()[1]['sender']['email'], self.new_user_2.email)
+        self.assertEqual(
+            response.json()[1]['sender']['fullname'], self.new_user_2.fullname)
+        self.assertEqual(
+            response.json()[1]['sender']['isAdmin'], self.new_user_2.is_staff)
+        self.assertEqual(
+            response.json()[1]['recipient']['email'], self.new_user.email)
+        self.assertEqual(
+            response.json()[1]['recipient']['fullname'], self.new_user.fullname)
+        self.assertEqual(
+            response.json()[1]['recipient']['isAdmin'], self.new_user.is_staff)
+        self.assertEqual(response.json()[1]['content'], 'test message 2')
+        self.assertEqual(response.json()[1]['isRead'], False)
+
+    def test_all_received_messages_fails_no_auth(self):
+        response = self.client.get(
+            reverse('received-messages'))
+        self.assertEqual(response.status_code, 401)
+
+    def test_all_received_messages_fails_wrong_method(self):
+        put_response = self.client.put(
+            reverse('received-messages'))
+        self.assertEqual(put_response.status_code, 401)
+
+        patch_response = self.client.patch(
+            reverse('received-messages'))
+        self.assertEqual(patch_response.status_code, 401)
+
+        post_response = self.client.post(
+            reverse('received-messages'))
+        self.assertEqual(post_response.status_code, 401)
+
+        delete_response = self.client.delete(
+            reverse('received-messages'))
+        self.assertEqual(delete_response.status_code, 401)
+
+
+class TestAllSentMessages(APITestCase):
+    def setUp(self):
+        self.password = 'a12341234'
+        self.email = 'test_user@gmail.com'
+        self.new_user = get_user_model().objects.create_user(
+            email=self.email, fullname='Test User', password=self.password, is_active=True, is_staff=True)
+
+        self.new_user_2 = get_user_model().objects.create_user(
+            email='test_user2@gmail.com', fullname='Test User2', password=self.password, is_active=True, is_staff=True)
+
+        login_response = self.client.post(reverse('token_obtain_pair'), data={
+            'email': self.email, 'password': self.password})
+        self.token = login_response.json()['token']
+        self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+
+        self.message_1 = Message.objects.create(sender=self.new_user,
+                                                recipient=self.new_user_2, content='test message')
+        self.message_2 = Message.objects.create(sender=self.new_user,
+                                                recipient=self.new_user_2, content='test message 2')
+
+    def test_all_received_messages_route_success(self):
+        response = self.client.get(
+            reverse('sent-messages'), **self.headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_all_received_messages_success_content(self):
+        response = self.client.get(
+            reverse('sent-messages'), **self.headers)
+        self.assertEqual(len(response.json()), 2)
+        self.assertEqual(
+            response.json()[0]['sender']['email'], self.new_user.email)
+        self.assertEqual(
+            response.json()[0]['sender']['fullname'], self.new_user.fullname)
+        self.assertEqual(
+            response.json()[0]['sender']['isAdmin'], self.new_user.is_staff)
+        self.assertEqual(
+            response.json()[0]['recipient']['email'], self.new_user_2.email)
+        self.assertEqual(
+            response.json()[0]['recipient']['fullname'], self.new_user_2.fullname)
+        self.assertEqual(
+            response.json()[0]['recipient']['isAdmin'], self.new_user_2.is_staff)
+        self.assertEqual(response.json()[0]['content'], 'test message')
+        self.assertEqual(response.json()[0]['isRead'], False)
+        self.assertEqual(
+            response.json()[1]['sender']['email'], self.new_user.email)
+        self.assertEqual(
+            response.json()[1]['sender']['fullname'], self.new_user.fullname)
+        self.assertEqual(
+            response.json()[1]['sender']['isAdmin'], self.new_user.is_staff)
+        self.assertEqual(
+            response.json()[1]['recipient']['email'], self.new_user_2.email)
+        self.assertEqual(
+            response.json()[1]['recipient']['fullname'], self.new_user_2.fullname)
+        self.assertEqual(
+            response.json()[1]['recipient']['isAdmin'], self.new_user_2.is_staff)
+        self.assertEqual(response.json()[1]['content'], 'test message 2')
+        self.assertEqual(response.json()[1]['isRead'], False)
+
+    def test_all_received_messages_fails_no_auth(self):
+        response = self.client.get(
+            reverse('sent-messages'))
+        self.assertEqual(response.status_code, 401)
+
+    def test_all_received_messages_fails_wrong_method(self):
+        put_response = self.client.put(
+            reverse('sent-messages'))
+        self.assertEqual(put_response.status_code, 401)
+
+        patch_response = self.client.patch(
+            reverse('sent-messages'))
+        self.assertEqual(patch_response.status_code, 401)
+
+        post_response = self.client.post(
+            reverse('sent-messages'))
+        self.assertEqual(post_response.status_code, 401)
+
+        delete_response = self.client.delete(
+            reverse('sent-messages'))
+        self.assertEqual(delete_response.status_code, 401)
+
+
+class TestReceivedMessageDetail(APITestCase):
+    def setUp(self):
+        self.password = 'a12341234'
+        self.email = 'test_user@gmail.com'
+        self.new_user = get_user_model().objects.create_user(
+            email=self.email, fullname='Test User', password=self.password, is_active=True, is_staff=True)
+        self.new_user_2 = get_user_model().objects.create_user(
+            email='test_user2@gmail.com', fullname='Test User2', password=self.password, is_active=True, is_staff=True)
+        self.new_user_3 = get_user_model().objects.create_user(
+            email='test_user3@gmail.com', fullname='Test User3', password=self.password, is_active=True)
+
+        login_response = self.client.post(reverse('token_obtain_pair'), data={
+            'email': self.email, 'password': self.password})
+        self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
+            'email': 'test_user3@gmail.com', 'password': self.password})
+        self.token = login_response.json()['token']
+        self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+
+        self.message_1 = Message.objects.create(sender=self.new_user,
+                                                recipient=self.new_user_2, content='test message')
+        self.message_2 = Message.objects.create(sender=self.new_user_2,
+                                                recipient=self.new_user, content='test message 2')
+
+    def test_received_message_detail_route_success(self):
+        response = self.client.get(
+            reverse('received-message-detail', args=[self.message_2.id]), **self.headers)
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_received_message_detail_success_content(self):
+        response = self.client.get(
+            reverse('received-message-detail', args=[self.message_2.id]), **self.headers)
+        self.assertEqual(response.json()['sender']
+                         ['email'], self.new_user_2.email)
+        self.assertEqual(response.json()['sender']
+                         ['fullname'], self.new_user_2.fullname)
+        self.assertEqual(response.json()['sender']
+                         ['isAdmin'], self.new_user_2.is_staff)
+        self.assertEqual(
+            response.json()['recipient']['email'], self.new_user.email)
+        self.assertEqual(
+            response.json()['recipient']['fullname'], self.new_user.fullname)
+        self.assertEqual(
+            response.json()['recipient']['isAdmin'], self.new_user.is_staff)
+        self.assertEqual(response.json()['content'], 'test message 2')
+        self.assertEqual(response.json()['isRead'], True)
+
+    def test_received_message_detail_fail_not_recipient(self):
+        """Message exists but it should return an empty dictionary because the user is not the recipient of it"""
+        response = self.client.get(
+            reverse('received-message-detail', args=[self.message_1.id]), **self.headers)
+        self.assertEqual(response.json()['content'], '')
+        self.assertEqual(response.json()['isRead'], False)
+        self.assertEqual(response.json()['sender']['email'], '')
+        self.assertEqual(response.json()['sender']['fullname'], '')
+        self.assertEqual(response.json()['recipient']['email'], '')
+        self.assertEqual(response.json()['recipient']['fullname'], '')
+
+    def test_received_message_detail_fail_no_staff(self):
+        token = self.login_response_2.json()['token']
+        headers = {'HTTP_AUTHORIZATION': f'JWT {token}'}
+        response = self.client.get(
+            reverse('received-message-detail', args=[self.message_1.id]), **headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_received_message_detail_fail_no_auth(self):
+        response = self.client.get(
+            reverse('received-message-detail', args=[self.message_2.id]))
+        self.assertEqual(response.status_code, 401)
+
+
+class TestSentMessageDetail(APITestCase):
+    def setUp(self):
+        self.password = 'a12341234'
+        self.email = 'test_user@gmail.com'
+        self.new_user = get_user_model().objects.create_user(
+            email=self.email, fullname='Test User', password=self.password, is_active=True, is_staff=True)
+        self.new_user_2 = get_user_model().objects.create_user(
+            email='test_user2@gmail.com', fullname='Test User2', password=self.password, is_active=True, is_staff=True)
+        self.new_user_3 = get_user_model().objects.create_user(
+            email='test_user3@gmail.com', fullname='Test User3', password=self.password, is_active=True)
+
+        login_response = self.client.post(reverse('token_obtain_pair'), data={
+            'email': self.email, 'password': self.password})
+        self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
+            'email': 'test_user3@gmail.com', 'password': self.password})
+        self.token = login_response.json()['token']
+        self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+
+        self.message_1 = Message.objects.create(sender=self.new_user,
+                                                recipient=self.new_user_2, content='test message')
+        self.message_2 = Message.objects.create(sender=self.new_user_2,
+                                                recipient=self.new_user, content='test message 2')
+
+    def test_sent_message_detail_route_success(self):
+        response = self.client.get(
+            reverse('sent-message-detail', args=[self.message_1.id]), **self.headers)
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_sent_message_detail_success_content(self):
+        response = self.client.get(
+            reverse('sent-message-detail', args=[self.message_1.id]), **self.headers)
+        self.assertEqual(response.json()['sender']
+                         ['email'], self.new_user.email)
+        self.assertEqual(response.json()['sender']
+                         ['fullname'], self.new_user.fullname)
+        self.assertEqual(response.json()['sender']
+                         ['isAdmin'], self.new_user.is_staff)
+        self.assertEqual(
+            response.json()['recipient']['email'], self.new_user_2.email)
+        self.assertEqual(
+            response.json()['recipient']['fullname'], self.new_user_2.fullname)
+        self.assertEqual(
+            response.json()['recipient']['isAdmin'], self.new_user_2.is_staff)
+        self.assertEqual(response.json()['content'], 'test message')
+        self.assertEqual(response.json()['isRead'], True)
+
+    def test_sent_message_detail_fail_not_recipient(self):
+        """Message exists but it should return an empty dictionary because the user is not the recipient of it"""
+        response = self.client.get(
+            reverse('sent-message-detail', args=[self.message_2.id]), **self.headers)
+        self.assertEqual(response.json()['content'], '')
+        self.assertEqual(response.json()['isRead'], False)
+        self.assertEqual(response.json()['sender']['email'], '')
+        self.assertEqual(response.json()['sender']['fullname'], '')
+        self.assertEqual(response.json()['recipient']['email'], '')
+        self.assertEqual(response.json()['recipient']['fullname'], '')
+
+    def test_sent_message_detail_fail_no_staff(self):
+        token = self.login_response_2.json()['token']
+        headers = {'HTTP_AUTHORIZATION': f'JWT {token}'}
+        response = self.client.get(
+            reverse('sent-message-detail', args=[self.message_1.id]), **headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_sent_message_detail_fail_no_auth(self):
+        response = self.client.get(
+            reverse('sent-message-detail', args=[self.message_1.id]))
+        self.assertEqual(response.status_code, 401)
+
+
+class TestChangeMessageStatus(APITestCase):
+    def setUp(self):
+        self.password = 'a12341234'
+        self.email = 'test_user@gmail.com'
+        self.new_user = get_user_model().objects.create_user(
+            email=self.email, fullname='Test User', password=self.password, is_active=True, is_staff=True)
+        self.new_user_2 = get_user_model().objects.create_user(
+            email='test_user2@gmail.com', fullname='Test User2', password=self.password, is_active=True, is_staff=True)
+        self.new_user_3 = get_user_model().objects.create_user(
+            email='test_user3@gmail.com', fullname='Test User3', password=self.password, is_active=True)
+
+        login_response = self.client.post(reverse('token_obtain_pair'), data={
+            'email': self.email, 'password': self.password})
+        self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
+            'email': 'test_user2@gmail.com', 'password': self.password})
+        self.login_response_3 = self.client.post(reverse('token_obtain_pair'), data={
+            'email': 'test_user3@gmail.com', 'password': self.password})
+        self.token = login_response.json()['token']
+        self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+
+        self.message_1 = Message.objects.create(sender=self.new_user,
+                                                recipient=self.new_user_2, content='test message')
+        self.message_2 = Message.objects.create(sender=self.new_user_2,
+                                                recipient=self.new_user, content='test message 2')
+
+    def test_change_message_status_route_success(self):
+        response = self.client.put(reverse('change-message-status', args=[self.message_2.id]), {
+            'isRead': True
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_change_message_status_success_content(self):
+        response = self.client.put(reverse('change-message-status', args=[self.message_2.id]), {
+            'isRead': True
+        }, format='json', **self.headers)
+        self.assertEqual(response.json()['content'], 'test message 2')
+        self.assertEqual(response.json()['sender']
+                         ['email'], self.new_user_2.email)
+        self.assertEqual(
+            response.json()['recipient']['email'], self.new_user.email)
+        self.assertEqual(response.json()['isRead'], True)
+
+    def test_change_message_status_fails_no_staff(self):
+        """A non staff member can't access this route"""
+        token = self.login_response_3.json()['token']
+        headers = {'HTTP_AUTHORIZATION': f'JWT {token}'}
+
+        response = self.client.put(reverse('change-message-status', args=[self.message_2.id]), {
+            'isRead': True
+        }, format='json', **headers)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_change_message_status_fails_no_auth(self):
+        response = self.client.put(reverse('change-message-status', args=[self.message_2.id]), {
+            'isRead': True
+        }, format='json')
+        self.assertEqual(response.status_code, 401)
+
+    def test_change_message_status_fails_no_recipient(self):
+        """Only the recipient admin is able to access this route"""
+        token = self.login_response_2.json()['token']
+        headers = {'HTTP_AUTHORIZATION': f'JWT {token}'}
+        response = self.client.put(reverse('change-message-status', args=[self.message_2.id]), {
+            'isRead': True
+        }, format='json', **headers)
+        self.assertEqual(response.status_code, 401)
+
+    def test_change_message_status_fails_no_fields_provided(self):
+        response = self.client.put(reverse(
+            'change-message-status', args=[self.message_2.id]), format='json', **self.headers)
+        self.assertEqual(response.status_code, 400)

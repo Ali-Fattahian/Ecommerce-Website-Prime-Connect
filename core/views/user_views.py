@@ -116,8 +116,11 @@ def send_message(request):
     try:
         recipient = get_object_or_404(
             get_user_model(), id=request.data['recipient'])
+        if recipient.is_staff == False:
+            return Response({'You can only send messasges to admins'}, status=status.HTTP_400_BAD_REQUEST)
         content = request.data['content']
-        message = Message.objects.create(sender=request.user, recipient=recipient, content=content)
+        message = Message.objects.create(
+            sender=request.user, recipient=recipient, content=content)
     except:
         return Response({'detail': 'Please fill all the fields'}, status=status.HTTP_400_BAD_REQUEST)
     serializer = MessageSerializer(message)
@@ -130,7 +133,7 @@ class AllReceivedMessages(generics.ListAPIView):
 
     def get_queryset(self):
         return Message.objects.filter(recipient=self.request.user)
-    
+
 
 class AllSentMessages(generics.ListAPIView):
     serializer_class = MessageSerializer
@@ -152,7 +155,7 @@ class ReceivedMessageDetail(generics.RetrieveAPIView):
             message.isRead = True
             message.save()
             return message
-        
+
 
 class SentMessageDetail(generics.RetrieveAPIView):
     queryset = Message.objects.all()
@@ -171,15 +174,14 @@ class SentMessageDetail(generics.RetrieveAPIView):
 @api_view(['PUT'])
 @permission_classes([permissions.IsAdminUser])
 def change_message_status(request, pk):
-    # try:
-    message = get_object_or_404(Message, pk=pk)
-    if request.user == message.recipient:
-        isRead = request.data['isRead']
-        print(isRead)
-        message.isRead = isRead
-        message.save()
-        serializer = MessageSerializer(message)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    return Response({'detail': 'You don\'nt have the permission for this action'}, status=status.HTTP_401_UNAUTHORIZED)
-    # except:
-        # return Response({'detail': 'An error occured while processing your request'}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        message = get_object_or_404(Message, pk=pk)
+        if request.user == message.recipient:
+            isRead = request.data['isRead']
+            message.isRead = isRead
+            message.save()
+            serializer = MessageSerializer(message)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({'detail': 'You don\'nt have the permission for this action'}, status=status.HTTP_401_UNAUTHORIZED)
+    except:
+        return Response({'detail': 'An error occured while processing your request'}, status=status.HTTP_400_BAD_REQUEST)
