@@ -15,6 +15,10 @@ urlpatterns = [
          product_views.ProductEditView.as_view(), name='product-edit'),
     path('product-image-delete/<str:pk>',
          product_views.delete_product_images, name='product-image-delete'),
+    path('get-total-monthly-earnings',
+         product_views.get_total_monthly_earnings, name='get-total-monthly-earnings'),
+    path('get-total-annual-earnings',
+         product_views.get_total_annual_earnings, name='get-total-annual-earnings'),
     path('<str:pk>', product_views.ProductDetailView.as_view(),
          name='product-detail'),
 ]

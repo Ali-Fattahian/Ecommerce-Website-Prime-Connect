@@ -6,9 +6,11 @@ from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.decorators import api_view, permission_classes
+from datetime import datetime, timedelta
+import pytz
 from core import models
 from core import serializers
-from rest_framework.decorators import api_view, permission_classes
 
 
 class ProductListView(generics.ListAPIView):
@@ -128,3 +130,31 @@ def delete_product_images(request, pk):
     product.save()
     serializer = serializers.ProductSerializer(product)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def get_total_monthly_earnings(request):
+    now = datetime.now()
+    now_aware = now.replace(tzinfo=pytz.UTC)
+    last_month = now_aware - timedelta(days=30)  # Last 30 days
+    last_month_orders = models.OrderItem.objects.filter(
+        dateCreated__gte=last_month)
+    earnings = 0
+    for obj in last_month_orders:
+        earnings += obj.price
+    return Response(earnings, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def get_total_annual_earnings(request):
+    now = datetime.now()
+    now_aware = now.replace(tzinfo=pytz.UTC)
+    last_year = now_aware - timedelta(days=365)
+    last_year_orders = models.OrderItem.objects.filter(
+        dateCreated__gte=last_year)
+    earnings = 0
+    for obj in last_year_orders:
+        earnings += obj.price
+    return Response(earnings, status=status.HTTP_200_OK)
