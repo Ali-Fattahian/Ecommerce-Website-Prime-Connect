@@ -1,4 +1,6 @@
 from rest_framework import generics, status, permissions
+from django.db.models.functions import TruncMonth
+from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from django.core.files import File
@@ -158,3 +160,97 @@ def get_total_annual_earnings(request):
     for obj in last_year_orders:
         earnings += obj.price
     return Response(earnings, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def get_monthly_earnings_by_days(request):
+    now = datetime.now()
+    now_aware = now.replace(tzinfo=pytz.UTC)
+    last_month = now_aware - timedelta(days=30)
+    queryset = models.OrderItem.objects.filter(dateCreated__gte=last_month).values(
+        'dateCreated').order_by('dateCreated').annotate(totalEarnings=Sum('price'))
+    monthly_earnings = []
+    for obj in queryset:
+        monthly_earnings.append({
+            'dateCreated': obj['dateCreated'],
+            'totalEarnings': obj['totalEarnings']
+        })
+    return Response(monthly_earnings, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def get_annual_earnings_by_months(request):
+    now = datetime.now()
+    now_aware = now.replace(tzinfo=pytz.UTC)
+    last_year = now_aware - timedelta(days=365)
+    queryset = models.OrderItem.objects.filter(dateCreated__gte=last_year).annotate(month=TruncMonth(
+        'dateCreated')).values('month').annotate(totalEarnings=Sum('price')).values('month', 'totalEarnings')
+    annual_earnings = []
+    for obj in queryset:
+        annual_earnings.append({
+            'month': obj['month'],
+            'totalEarnings': obj['totalEarnings']
+        })
+    return Response(annual_earnings, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def get_total_earnings_by_subCategory(request):
+    all_order_items = models.OrderItem.objects.all()
+    all_sub_categories = models.SubCategory.objects.all()
+    earnings = {}
+
+    for obj in all_sub_categories:
+        # Make a dictionary in which all sub categories are the keys
+        earnings[obj.name] = {'Count': 0, 'Total Earnings': 0}
+
+    for obj in all_order_items:
+        earnings[obj.product.subCategory.name]['Count'] += 1 # In each order item there is only one product
+        earnings[obj.product.subCategory.name]['Total Earnings'] += obj.price
+    return Response(earnings, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def get_total_earnings_by_category(request):
+    all_order_items = models.OrderItem.objects.all()
+    all_categories = models.Category.objects.all()
+    earnings = {}
+
+    for obj in all_categories:
+        # Make a dictionary in which all categories are the keys
+        earnings[obj.name] = {'Count': 0, 'Total Earnings': 0}
+
+    for obj in all_order_items:
+        # In each order item there is only one product
+        earnings[obj.product.subCategory.category.name]['Count'] += 1
+        earnings[obj.product.subCategory.category.name]['Total Earnings'] += obj.price
+    return Response(earnings, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def get_total_earnings_by_country(request):
+    all_order_items = models.OrderItem.objects.all()
+    earnings = {}
+    for obj in all_order_items:
+        # all_countries_2.append(i)
+        if obj.order.shippingaddress.country in earnings.keys():
+            earnings[obj.order.shippingaddress.country]['Count'] += 1
+            earnings[obj.order.shippingaddress.country]['Total Earnings'] += obj.price
+        else:
+            earnings[obj.order.shippingaddress.country] = {
+                'Count': 1, 'Total Earnings': obj.price}
+
+    return Response(earnings, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def get_all_pending_requests(request):
+    queryset = models.Order.objects.filter(isPaid=True, isDelivered=False)
+    serializer = serializers.OrderSerializer(queryset, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)

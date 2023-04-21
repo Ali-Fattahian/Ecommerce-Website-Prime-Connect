@@ -61,6 +61,9 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        verbose_name_plural = 'Categories'
+
 
 class SubCategory(models.Model):
     category = models.ForeignKey(
@@ -69,6 +72,9 @@ class SubCategory(models.Model):
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        verbose_name_plural = 'Sub Categories'
 
 
 # ==================================================================================
@@ -173,6 +179,9 @@ class OrderItem(models.Model):
     def __str__(self):
         return str(self.name)
 
+    class Meta:
+        verbose_name_plural = 'Order Items'
+
 
 # ==================================================================================
 
@@ -189,6 +198,9 @@ class ShippingAddress(models.Model):
 
     def __str__(self):
         return str(self.address)
+
+    class Meta:
+        verbose_name_plural = 'Shipping Addresses'
 
 
 # ==================================================================================
