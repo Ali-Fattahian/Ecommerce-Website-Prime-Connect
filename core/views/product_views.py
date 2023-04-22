@@ -190,7 +190,7 @@ def get_annual_earnings_by_months(request):
     annual_earnings = []
     for obj in queryset:
         annual_earnings.append({
-            'month': obj['month'],
+            'dateCreated': obj['month'],
             'totalEarnings': obj['totalEarnings']
         })
     return Response(annual_earnings, status=status.HTTP_200_OK)
@@ -205,11 +205,12 @@ def get_total_earnings_by_subCategory(request):
 
     for obj in all_sub_categories:
         # Make a dictionary in which all sub categories are the keys
-        earnings[obj.name] = {'Count': 0, 'Total Earnings': 0}
+        earnings[obj.name] = {'count': 0, 'totalEarnings': 0}
 
     for obj in all_order_items:
-        earnings[obj.product.subCategory.name]['Count'] += 1 # In each order item there is only one product
-        earnings[obj.product.subCategory.name]['Total Earnings'] += obj.price
+        # In each order item there is only one product
+        earnings[obj.product.subCategory.name]['count'] += 1
+        earnings[obj.product.subCategory.name]['totalEarnings'] += obj.price
     return Response(earnings, status=status.HTTP_200_OK)
 
 
@@ -222,12 +223,12 @@ def get_total_earnings_by_category(request):
 
     for obj in all_categories:
         # Make a dictionary in which all categories are the keys
-        earnings[obj.name] = {'Count': 0, 'Total Earnings': 0}
+        earnings[obj.name] = {'count': 0, 'totalEarnings': 0}
 
     for obj in all_order_items:
         # In each order item there is only one product
-        earnings[obj.product.subCategory.category.name]['Count'] += 1
-        earnings[obj.product.subCategory.category.name]['Total Earnings'] += obj.price
+        earnings[obj.product.subCategory.category.name]['count'] += 1
+        earnings[obj.product.subCategory.category.name]['totalEarnings'] += obj.price
     return Response(earnings, status=status.HTTP_200_OK)
 
 
@@ -239,11 +240,11 @@ def get_total_earnings_by_country(request):
     for obj in all_order_items:
         # all_countries_2.append(i)
         if obj.order.shippingaddress.country in earnings.keys():
-            earnings[obj.order.shippingaddress.country]['Count'] += 1
-            earnings[obj.order.shippingaddress.country]['Total Earnings'] += obj.price
+            earnings[obj.order.shippingaddress.country]['count'] += 1
+            earnings[obj.order.shippingaddress.country]['totalEarnings'] += obj.price
         else:
             earnings[obj.order.shippingaddress.country] = {
-                'Count': 1, 'Total Earnings': obj.price}
+                'count': 1, 'totalEarnings': obj.price}
 
     return Response(earnings, status=status.HTTP_200_OK)
 

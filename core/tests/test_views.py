@@ -1,7 +1,12 @@
 from rest_framework.test import APITestCase
 from django.contrib.auth import get_user_model
 from django.urls import reverse
-from core.models import Product, SubCategory, Order, Message
+from core.models import (Product, SubCategory,
+                         Order, Message,
+                         OrderItem, Category,
+                         ShippingAddress)
+from datetime import datetime, timedelta
+import pytz
 
 
 class TestLoginRoute(APITestCase):
@@ -1867,3 +1872,876 @@ class TestChangeMessageStatus(APITestCase):
         response = self.client.put(reverse(
             'change-message-status', args=[self.message_2.id]), format='json', **self.headers)
         self.assertEqual(response.status_code, 400)
+
+
+class TestGetTotalMonthlyEarnings(APITestCase):
+    def setUp(self):
+        self.email = 'test_user@gmail.com'
+        self.password = 'a12341234'
+        self.new_user = get_user_model().objects.create_user(email=self.email,
+                                                             fullname='Test User', password=self.password,
+                                                             is_active=True, is_staff=True)
+        self.new_user_2 = get_user_model().objects.create_user(email='test_user2@gmail.com',
+                                                               fullname='Test User', password=self.password,
+                                                               is_active=True)
+
+        login_response = self.client.post(reverse('token_obtain_pair'), data={
+            'email': self.email, 'password': self.password})
+        self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
+            'email': 'test_user2@gmail.com', 'password': self.password})
+
+        self.token = login_response.json()['token']
+        self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+
+        self.sub_category = SubCategory.objects.create(name="Test Category")
+        self.new_product = Product.objects.create(name='new product',
+                                                  description='test desciption',
+                                                  user=self.new_user, brand='Amazon',
+                                                  subCategory=self.sub_category, price=500,
+                                                  countInStock=12)
+        self.now = datetime.now()
+        self.now_aware = self.now.replace(tzinfo=pytz.UTC)
+        self.last_month = self.now_aware - timedelta(weeks=5)
+        self.new_order = Order.objects.create(user=self.new_user, paymentMethod='testmethod',
+                                              taxPrice=300, totalPrice=3000, shippingPrice=50)
+        self.new_order_item = OrderItem.objects.create(product=self.new_product, order=self.new_order,
+                                                       name='testorderitem', qty=4, price=2000)
+        self.new_order_item_2 = OrderItem.objects.create(product=self.new_product, order=self.new_order,
+                                                         name='testorderitem', qty=2, price=1000)
+        self.new_order_item_3 = OrderItem.objects.create(product=self.new_product, order=self.new_order,
+                                                         name='testorderitem', qty=3, price=1500)
+        self.new_order_item_3.dateCreated = self.last_month
+        self.new_order_item_3.save()  # Was made last month, Shouldn't be in the results
+
+    def test_get_total_monthly_earnings_route_success(self):
+        response = self.client.get(
+            reverse('get-total-monthly-earnings'), **self.headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_total_monthly_earnings_change_date(self):
+        """Set dateCreated for one of the order items to last month and this should change total earnings"""
+        self.new_order_item_2.dateCreated = self.last_month
+        self.new_order_item_2.save()
+        response = self.client.get(
+            reverse('get-total-monthly-earnings'), **self.headers)
+        self.assertEqual(response.json(), self.new_order_item.price)
+
+    def test_get_total_monthly_earnings_success_content(self):
+        response = self.client.get(
+            reverse('get-total-monthly-earnings'), **self.headers)
+        self.assertEqual(
+            response.json(), self.new_order_item.price + self.new_order_item_2.price)
+
+    def test_get_total_monthly_earnings_fails_no_staff(self):
+        token = self.login_response_2.json()['token']
+        headers = {'HTTP_AUTHORIZATION': f'JWT {token}'}
+
+        response = self.client.get(
+            reverse('get-total-monthly-earnings'), **headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_get_total_monthly_earnings_fails_no_auth(self):
+        response = self.client.get(
+            reverse('get-total-monthly-earnings'))
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_total_monthly_earnings_fails_wrong_method(self):
+        post_response = self.client.post(
+            reverse('get-total-monthly-earnings'), **self.headers)
+        put_response = self.client.put(
+            reverse('get-total-monthly-earnings'), **self.headers)
+        patch_response = self.client.patch(
+            reverse('get-total-monthly-earnings'), **self.headers)
+        delete_response = self.client.delete(
+            reverse('get-total-monthly-earnings'), **self.headers)
+
+        self.assertEqual(post_response.status_code, 405)
+        self.assertEqual(put_response.status_code, 405)
+        self.assertEqual(patch_response.status_code, 405)
+        self.assertEqual(delete_response.status_code, 405)
+
+
+class TestGetTotalAnnualEarnings(APITestCase):
+    def setUp(self):
+        self.email = 'test_user@gmail.com'
+        self.password = 'a12341234'
+        self.new_user = get_user_model().objects.create_user(email=self.email,
+                                                             fullname='Test User', password=self.password,
+                                                             is_active=True, is_staff=True)
+        self.new_user_2 = get_user_model().objects.create_user(email='test_user2@gmail.com',
+                                                               fullname='Test User', password=self.password,
+                                                               is_active=True)
+
+        login_response = self.client.post(reverse('token_obtain_pair'), data={
+            'email': self.email, 'password': self.password})
+        self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
+            'email': 'test_user2@gmail.com', 'password': self.password})
+
+        self.token = login_response.json()['token']
+        self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+
+        self.sub_category = SubCategory.objects.create(name="Test Category")
+        self.new_product = Product.objects.create(name='new product',
+                                                  description='test desciption',
+                                                  user=self.new_user, brand='Amazon',
+                                                  subCategory=self.sub_category, price=500,
+                                                  countInStock=12)
+        self.now = datetime.now()
+        self.now_aware = self.now.replace(tzinfo=pytz.UTC)
+        self.last_year = self.now_aware - timedelta(weeks=60)
+        self.new_order = Order.objects.create(user=self.new_user, paymentMethod='testmethod',
+                                              taxPrice=300, totalPrice=3000, shippingPrice=50)
+        self.new_order_item = OrderItem.objects.create(product=self.new_product, order=self.new_order,
+                                                       name='testorderitem', qty=4, price=2000)
+        self.new_order_item_2 = OrderItem.objects.create(product=self.new_product, order=self.new_order,
+                                                         name='testorderitem', qty=2, price=1000)
+        self.new_order_item_3 = OrderItem.objects.create(product=self.new_product, order=self.new_order,
+                                                         name='testorderitem', qty=3, price=1500)
+        self.new_order_item_3.dateCreated = self.last_year
+        self.new_order_item_3.save()  # Was made last year, Shouldn't be in the results
+
+    def test_get_total_annual_earnings_route_success(self):
+        response = self.client.get(
+            reverse('get-total-annual-earnings'), **self.headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_total_annual_earnings_success_content(self):
+        response = self.client.get(
+            reverse('get-total-annual-earnings'), **self.headers)
+        self.assertEqual(response.json(), 3000)
+
+    def test_get_total_annual_earnings_change_date(self):
+        """Set dateCreated for one of the order items to last year and this should change total earnings"""
+        self.new_order_item_2.dateCreated = self.last_year
+        self.new_order_item_2.save()
+        response = self.client.get(
+            reverse('get-total-annual-earnings'), **self.headers)
+        self.assertEqual(response.json(), self.new_order_item.price)
+
+    def test_get_total_annual_earnings_fails_no_staff(self):
+        token = self.login_response_2.json()['token']
+        headers = {'HTTP_AUTHORIZATION': f'JWT {token}'}
+
+        response = self.client.get(
+            reverse('get-total-annual-earnings'), **headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_get_total_annual_earnings_fails_no_auth(self):
+        response = self.client.get(
+            reverse('get-total-annual-earnings'))
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_total_annual_earnings_fails_wrong_method(self):
+        post_response = self.client.post(
+            reverse('get-total-annual-earnings'), **self.headers)
+        put_response = self.client.put(
+            reverse('get-total-annual-earnings'), **self.headers)
+        patch_response = self.client.patch(
+            reverse('get-total-annual-earnings'), **self.headers)
+        delete_response = self.client.delete(
+            reverse('get-total-annual-earnings'), **self.headers)
+
+        self.assertEqual(post_response.status_code, 405)
+        self.assertEqual(put_response.status_code, 405)
+        self.assertEqual(patch_response.status_code, 405)
+        self.assertEqual(delete_response.status_code, 405)
+
+
+class TestGetMonthlyEarningsByDays(APITestCase):
+    def setUp(self):
+        self.email = 'test_user@gmail.com'
+        self.password = 'a12341234'
+        self.new_user = get_user_model().objects.create_user(email=self.email,
+                                                             fullname='Test User', password=self.password,
+                                                             is_active=True, is_staff=True)
+        self.new_user_2 = get_user_model().objects.create_user(email='test_user2@gmail.com',
+                                                               fullname='Test User', password=self.password,
+                                                               is_active=True)
+
+        login_response = self.client.post(reverse('token_obtain_pair'), data={
+            'email': self.email, 'password': self.password})
+        self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
+            'email': 'test_user2@gmail.com', 'password': self.password})
+
+        self.token = login_response.json()['token']
+        self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+
+        self.sub_category = SubCategory.objects.create(name="Test Category")
+        self.new_product = Product.objects.create(name='new product',
+                                                  description='test desciption',
+                                                  user=self.new_user, brand='Amazon',
+                                                  subCategory=self.sub_category, price=500,
+                                                  countInStock=12)
+        self.now = datetime.now()
+        self.now_aware = self.now.replace(tzinfo=pytz.UTC)
+        self.last_month = self.now_aware - timedelta(weeks=5)
+        self.new_order = Order.objects.create(user=self.new_user, paymentMethod='testmethod',
+                                              taxPrice=300, totalPrice=3000, shippingPrice=50)
+        self.new_order_item = OrderItem.objects.create(product=self.new_product, order=self.new_order,
+                                                       name='testorderitem', qty=4, price=2000)
+        self.new_order_item_2 = OrderItem.objects.create(product=self.new_product, order=self.new_order,
+                                                         name='testorderitem', qty=2, price=1000)
+        self.new_order_item_3 = OrderItem.objects.create(product=self.new_product, order=self.new_order,
+                                                         name='testorderitem', qty=3, price=1500)
+        yesterday = self.now_aware - timedelta(days=1)
+        self.new_order_item_2.dateCreated = yesterday
+        self.new_order_item_2.save()
+
+        self.new_order_item_3.dateCreated = self.last_month
+        self.new_order_item_3.save()  # Was made last month, Shouldn't be in the results
+
+    def test_get_monthly_earnings_by_days_route_success(self):
+        response = self.client.get(
+            reverse('get-monthly-earnings-by-days'), **self.headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_monthly_earnings_by_days_route_success(self):
+        response = self.client.get(
+            reverse('get-monthly-earnings-by-days'), **self.headers)
+        # Two orders are in this month, Separate days
+        self.assertEqual(len(response.json()), 2)
+        self.assertEqual(response.json()[1]['dateCreated'][0:10], str(
+            self.new_order_item.dateCreated)[0:10])
+        self.assertEqual(response.json()[0]['dateCreated'][0:10], str(
+            self.new_order_item_2.dateCreated)[0:10])
+        self.assertEqual(
+            response.json()[1]['totalEarnings'], self.new_order_item.price)
+        self.assertEqual(
+            response.json()[0]['totalEarnings'], self.new_order_item_2.price)
+
+    def test_get_monthly_earnings_by_days_change_date(self):
+        """Set dateCreated for one of the order items to last month and this should change th earnings result"""
+        self.new_order_item_2.dateCreated = self.last_month
+        self.new_order_item_2.save()
+
+        response = self.client.get(
+            reverse('get-monthly-earnings-by-days'), **self.headers)
+        self.assertEqual(len(response.json()), 1)
+
+    def test_get_monthly_earnings_by_days_fails_no_staff(self):
+        token = self.login_response_2.json()['token']
+        headers = {'HTTP_AUTHORIZATION': f'JWT {token}'}
+
+        response = self.client.get(
+            reverse('get-monthly-earnings-by-days'), **headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_get_monthly_earnings_by_days_fails_no_auth(self):
+        response = self.client.get(
+            reverse('get-monthly-earnings-by-days'))
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_monthly_earnings_by_days_fails_wrong_method(self):
+        post_response = self.client.post(
+            reverse('get-monthly-earnings-by-days'), **self.headers)
+        self.assertEqual(post_response.status_code, 405)
+
+        put_response = self.client.put(
+            reverse('get-monthly-earnings-by-days'), **self.headers)
+        self.assertEqual(put_response.status_code, 405)
+
+        patch_response = self.client.patch(
+            reverse('get-monthly-earnings-by-days'), **self.headers)
+        self.assertEqual(patch_response.status_code, 405)
+
+        delete_response = self.client.delete(
+            reverse('get-monthly-earnings-by-days'), **self.headers)
+        self.assertEqual(delete_response.status_code, 405)
+
+
+class TestGetAnnualEarningsByMonths(APITestCase):
+    def setUp(self):
+        self.email = 'test_user@gmail.com'
+        self.password = 'a12341234'
+        self.new_user = get_user_model().objects.create_user(email=self.email,
+                                                             fullname='Test User', password=self.password,
+                                                             is_active=True, is_staff=True)
+        self.new_user_2 = get_user_model().objects.create_user(email='test_user2@gmail.com',
+                                                               fullname='Test User', password=self.password,
+                                                               is_active=True)
+
+        login_response = self.client.post(reverse('token_obtain_pair'), data={
+            'email': self.email, 'password': self.password})
+        self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
+            'email': 'test_user2@gmail.com', 'password': self.password})
+
+        self.token = login_response.json()['token']
+        self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+
+        self.sub_category = SubCategory.objects.create(name="Test Category")
+        self.new_product = Product.objects.create(name='new product',
+                                                  description='test desciption',
+                                                  user=self.new_user, brand='Amazon',
+                                                  subCategory=self.sub_category, price=500,
+                                                  countInStock=12)
+        self.now = datetime.now()
+        self.now_aware = self.now.replace(tzinfo=pytz.UTC)
+        self.last_year = self.now_aware - timedelta(weeks=60)
+        self.last_month = self.now_aware - timedelta(weeks=5)
+        self.new_order = Order.objects.create(user=self.new_user, paymentMethod='testmethod',
+                                              taxPrice=300, totalPrice=3000, shippingPrice=50)
+        self.new_order_item = OrderItem.objects.create(product=self.new_product, order=self.new_order,
+                                                       name='testorderitem', qty=4, price=2000)
+        self.new_order_item_2 = OrderItem.objects.create(product=self.new_product, order=self.new_order,
+                                                         name='testorderitem', qty=2, price=1000)
+        self.new_order_item_3 = OrderItem.objects.create(product=self.new_product, order=self.new_order,
+                                                         name='testorderitem', qty=3, price=1500)
+        self.new_order_item_2.dateCreated = self.last_month
+        self.new_order_item_2.save()  # Different month to make them separated
+        self.new_order_item_3.dateCreated = self.last_year
+        self.new_order_item_3.save()  # Was made last year, Shouldn't be in the results
+
+    def test_get_annual_earnings_by_months_route_success(self):
+        response = self.client.get(
+            reverse('get-annual-earnings-by-months'), **self.headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_annual_earnings_by_months_success_content(self):
+        response = self.client.get(
+            reverse('get-annual-earnings-by-months'), **self.headers)
+        self.assertEqual(len(response.json()), 2)
+        self.assertEqual(response.json()[1]['dateCreated'][0:7], str(
+            self.new_order_item.dateCreated)[0:7])
+        self.assertEqual(response.json()[0]['dateCreated'][0:7], str(
+            self.new_order_item_2.dateCreated)[0:7])
+        self.assertEqual(
+            response.json()[1]['totalEarnings'], self.new_order_item.price)
+        self.assertEqual(
+            response.json()[0]['totalEarnings'], self.new_order_item_2.price)
+
+    def test_get_annual_earnings_by_months_change_date_to_this_month(self):
+        """Set dateCreated for order item 2 to this month should add the price of that to earnings of this month"""
+        self.new_order_item_2.dateCreated = self.now_aware
+        self.new_order_item_2.save()
+        response = self.client.get(
+            reverse('get-annual-earnings-by-months'), **self.headers)
+
+        self.assertEqual(len(response.json()), 1)
+        self.assertEqual(
+            response.json()[0]['totalEarnings'],
+            self.new_order_item.price + self.new_order_item_2.price)  # Now they are in the same month
+        self.assertEqual(
+            response.json()[0]['dateCreated'][0:7],
+            str(self.new_order_item.dateCreated)[0:7])  # From the beginning to the month is important
+
+    def test_get_annual_earnings_by_months_change_date_to_this_year(self):
+        """Settings order item 3 dateCreated to this year and separate month should add it to the results"""
+        self.new_order_item_3.dateCreated = self.now_aware - \
+            timedelta(weeks=11)
+        self.new_order_item_3.save()
+        response = self.client.get(
+            reverse('get-annual-earnings-by-months'), **self.headers)
+        self.assertEqual(len(response.json()), 3)
+        self.assertEqual(
+            response.json()[0]['totalEarnings'], self.new_order_item_3.price)
+        self.assertEqual(response.json()[0]['dateCreated'][0:7], str(
+            self.new_order_item_3.dateCreated)[0:7])
+
+    def test_get_annual_earnings_by_months_fails_no_staff(self):
+        token = self.login_response_2.json()['token']
+        headers = {'HTTP_AUTHORIZATION': f'JWT {token}'}
+        response = self.client.get(
+            reverse('get-annual-earnings-by-months'), **headers)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_get_annual_earnings_by_months_fails_no_auth(self):
+        response = self.client.get(reverse('get-annual-earnings-by-months'))
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_annual_earnings_by_months_fails_wrong_method(self):
+        post_response = self.client.post(
+            reverse('get-annual-earnings-by-months'), **self.headers)
+        self.assertEqual(post_response.status_code, 405)
+
+        put_response = self.client.put(
+            reverse('get-annual-earnings-by-months'), **self.headers)
+        self.assertEqual(put_response.status_code, 405)
+
+        patch_response = self.client.patch(
+            reverse('get-annual-earnings-by-months'), **self.headers)
+        self.assertEqual(patch_response.status_code, 405)
+
+        delete_response = self.client.delete(
+            reverse('get-annual-earnings-by-months'), **self.headers)
+        self.assertEqual(delete_response.status_code, 405)
+
+
+class TestGetTotalEarningsBySubCategory(APITestCase):
+    def setUp(self):
+        self.email = 'test_user@gmail.com'
+        self.password = 'a12341234'
+        self.new_user = get_user_model().objects.create_user(email=self.email,
+                                                             fullname='Test User', password=self.password,
+                                                             is_active=True, is_staff=True)
+        self.new_user_2 = get_user_model().objects.create_user(email='test_user2@gmail.com',
+                                                               fullname='Test User', password=self.password,
+                                                               is_active=True)
+
+        login_response = self.client.post(reverse('token_obtain_pair'), data={
+            'email': self.email, 'password': self.password})
+        self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
+            'email': 'test_user2@gmail.com', 'password': self.password})
+
+        self.token = login_response.json()['token']
+        self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+
+        self.sub_category = SubCategory.objects.create(name="Test Category")
+        self.sub_category_2 = SubCategory.objects.create(
+            name="Test Category 2")
+        self.sub_category_3 = SubCategory.objects.create(
+            name="Test Category 3")
+
+        self.new_product = Product.objects.create(name='new product',
+                                                  description='test desciption',
+                                                  user=self.new_user, brand='Amazon',
+                                                  subCategory=self.sub_category, price=500,
+                                                  countInStock=12)
+        self.new_product_2 = Product.objects.create(name='new product 2',
+                                                    description='test desciption 2',
+                                                    user=self.new_user, brand='Apple',
+                                                    subCategory=self.sub_category_2, price=500,
+                                                    countInStock=12)
+        self.new_product_3 = Product.objects.create(name='new product 3',
+                                                    description='test desciption 3',
+                                                    user=self.new_user, brand='Sony',
+                                                    subCategory=self.sub_category_3, price=500,
+                                                    countInStock=12)
+
+        self.new_order = Order.objects.create(user=self.new_user, paymentMethod='testmethod',
+                                              taxPrice=300, totalPrice=3000, shippingPrice=50)
+        self.new_order_item = OrderItem.objects.create(product=self.new_product, order=self.new_order,
+                                                       name='testorderitem', qty=4, price=2000)
+        self.new_order_item_2 = OrderItem.objects.create(product=self.new_product_2, order=self.new_order,
+                                                         name='testorderitem', qty=2, price=1000)
+        self.new_order_item_3 = OrderItem.objects.create(product=self.new_product_3, order=self.new_order,
+                                                         name='testorderitem', qty=3, price=1500)
+
+    def test_get_total_earnings_by_sub_category_route_success(self):
+        response = self.client.get(
+            reverse('get-total-earnings-by-subCategory'), **self.headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_total_earnings_by_sub_category_success_content(self):
+        response = self.client.get(
+            reverse('get-total-earnings-by-subCategory'), **self.headers)
+
+        self.assertEqual(len(response.json()), 3)
+
+        self.assertTrue(response.json()[self.sub_category.name])
+        self.assertTrue(response.json()[self.sub_category_2.name])
+        self.assertTrue(response.json()[self.sub_category_3.name])
+
+        self.assertEqual(response.json()[
+                         self.sub_category.name]['totalEarnings'],
+                         self.new_order_item.price)
+        self.assertEqual(response.json()[
+                         self.sub_category_2.name]['totalEarnings'],
+                         self.new_order_item_2.price)
+        self.assertEqual(response.json()[
+                         self.sub_category_3.name]['totalEarnings'],
+                         self.new_order_item_3.price)
+
+    def test_get_total_earnings_by_sub_category_change_sub_categories(self):
+        """By setting all sub categories to one, We should still
+          get three dictionories in the results,
+          And all the dictionaries should have different numbers"""
+        self.new_product_2.subCategory = self.sub_category
+        self.new_product_2.save()
+        self.new_product_3.subCategory = self.sub_category
+        self.new_product_3.save()
+
+        response = self.client.get(
+            reverse('get-total-earnings-by-subCategory'), **self.headers)
+
+        self.assertEqual(len(response.json()), 3)
+        self.assertTrue(response.json()[self.sub_category.name])
+        self.assertTrue(response.json()[self.sub_category_2.name])
+        self.assertTrue(response.json()[self.sub_category_3.name])
+
+        self.assertEqual(response.json()[self.sub_category.name]['totalEarnings'],
+                         self.new_order_item.price + self.new_order_item_2.price
+                         + self.new_order_item_3.price)
+        self.assertEqual(
+            response.json()[self.sub_category_2.name]['totalEarnings'], 0)
+        self.assertEqual(
+            response.json()[self.sub_category_3.name]['totalEarnings'], 0)
+        self.assertEqual(response.json()[self.sub_category.name]['count'], 3)
+        self.assertEqual(response.json()[self.sub_category_2.name]['count'], 0)
+        self.assertEqual(response.json()[self.sub_category_3.name]['count'], 0)
+
+    def test_get_total_earnings_by_sub_category_fails_no_staff(self):
+        token = self.login_response_2.json()['token']
+        headers = {'HTTP_AUTHORIZATION': f'JWT {token}'}
+
+        response = self.client.get(
+            reverse('get-total-earnings-by-subCategory'), **headers)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_get_total_earnings_by_sub_category_fails_no_auth(self):
+        response = self.client.get(
+            reverse('get-total-earnings-by-subCategory'))
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_total_earnings_by_sub_category_fails_wrong_method(self):
+        post_response = self.client.post(
+            reverse('get-total-earnings-by-subCategory'), **self.headers)
+        self.assertEqual(post_response.status_code, 405)
+
+        put_response = self.client.put(
+            reverse('get-total-earnings-by-subCategory'), **self.headers)
+        self.assertEqual(put_response.status_code, 405)
+
+        patch_response = self.client.patch(
+            reverse('get-total-earnings-by-subCategory'), **self.headers)
+        self.assertEqual(patch_response.status_code, 405)
+
+        delete_response = self.client.delete(
+            reverse('get-total-earnings-by-subCategory'), **self.headers)
+        self.assertEqual(delete_response.status_code, 405)
+
+
+class TestGetTotalEarningsByCategory(APITestCase):
+    def setUp(self):
+        self.email = 'test_user@gmail.com'
+        self.password = 'a12341234'
+        self.new_user = get_user_model().objects.create_user(email=self.email,
+                                                             fullname='Test User', password=self.password,
+                                                             is_active=True, is_staff=True)
+        self.new_user_2 = get_user_model().objects.create_user(email='test_user2@gmail.com',
+                                                               fullname='Test User', password=self.password,
+                                                               is_active=True)
+
+        login_response = self.client.post(reverse('token_obtain_pair'), data={
+            'email': self.email, 'password': self.password})
+        self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
+            'email': 'test_user2@gmail.com', 'password': self.password})
+
+        self.token = login_response.json()['token']
+        self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+
+        self.category_1 = Category.objects.create(name='Test Category')
+        self.category_2 = Category.objects.create(name='Test Category 2')
+        self.sub_category = SubCategory.objects.create(
+            name="Test Sub Category", category=self.category_1)
+        self.sub_category_2 = SubCategory.objects.create(
+            name="Test Sub Category 2", category=self.category_1)
+
+        self.sub_category_3 = SubCategory.objects.create(
+            name="Test Sub Category 3", category=self.category_2)
+
+        self.new_product = Product.objects.create(name='new product',
+                                                  description='test desciption',
+                                                  user=self.new_user, brand='Amazon',
+                                                  subCategory=self.sub_category, price=500,
+                                                  countInStock=12)
+        self.new_product_2 = Product.objects.create(name='new product 2',
+                                                    description='test desciption 2',
+                                                    user=self.new_user, brand='Apple',
+                                                    subCategory=self.sub_category_2, price=500,
+                                                    countInStock=12)
+        self.new_product_3 = Product.objects.create(name='new product 3',
+                                                    description='test desciption 3',
+                                                    user=self.new_user, brand='Sony',
+                                                    subCategory=self.sub_category_3, price=500,
+                                                    countInStock=12)
+        self.new_order = Order.objects.create(user=self.new_user, paymentMethod='testmethod',
+                                              taxPrice=300, totalPrice=3000, shippingPrice=50)
+        self.new_order_item = OrderItem.objects.create(product=self.new_product, order=self.new_order,
+                                                       name='testorderitem', qty=4, price=2000)
+        self.new_order_item_2 = OrderItem.objects.create(product=self.new_product_2, order=self.new_order,
+                                                         name='testorderitem', qty=2, price=1000)
+        self.new_order_item_3 = OrderItem.objects.create(product=self.new_product_3, order=self.new_order,
+                                                         name='testorderitem', qty=3, price=1500)
+
+    def test_get_total_earnings_by_category_route_success(self):
+        response = self.client.get(
+            reverse('get-total-earnings-by-category'), **self.headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_total_earnings_by_category_success_content(self):
+        response = self.client.get(
+            reverse('get-total-earnings-by-category'), **self.headers)
+
+        self.assertEqual(len(response.json()), 2)
+
+        self.assertTrue(response.json()[self.category_1.name])
+        self.assertTrue(response.json()[self.category_2.name])
+
+        self.assertEqual(response.json()[
+                         self.category_1.name]['totalEarnings'],
+                         self.new_order_item.price + self.new_order_item_2.price)
+        self.assertEqual(response.json()[
+                         self.category_1.name]['count'], 2)
+
+        self.assertEqual(response.json()[
+                         self.category_2.name]['count'], 1)
+
+    def test_get_total_earnings_by_category_change_sub_category(self):
+        """Changing the category of the 3rd sub category should result in different numbers"""
+        self.sub_category_3.category = self.category_1
+        self.sub_category_3.save()
+
+        response = self.client.get(
+            reverse('get-total-earnings-by-category'), **self.headers)
+        self.assertEqual(len(response.json()), 2)
+        self.assertEqual(response.json()[self.category_1.name]['totalEarnings'], self.new_order_item.price +
+                         self.new_order_item_2.price + self.new_order_item_3.price)
+        self.assertEqual(response.json()[self.category_1.name]['count'], 3)
+        self.assertEqual(
+            response.json()[self.category_2.name]['totalEarnings'], 0)
+        self.assertEqual(response.json()[self.category_2.name]['count'], 0)
+
+    def test_get_total_earnings_by_category_fails_no_staff(self):
+        token = self.login_response_2.json()['token']
+        headers = {'HTTP_AUTHORIZATION': f'JWT {token}'}
+
+        response = self.client.get(
+            reverse('get-total-earnings-by-category'), **headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_get_total_earnings_by_category_fails_no_auth(self):
+        response = self.client.get(
+            reverse('get-total-earnings-by-category'))
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_total_earnings_by_category_fails_wrong_method(self):
+        post_response = self.client.post(
+            reverse('get-total-earnings-by-category'), **self.headers)
+        self.assertEqual(post_response.status_code, 405)
+
+        put_response = self.client.put(
+            reverse('get-total-earnings-by-category'), **self.headers)
+        self.assertEqual(put_response.status_code, 405)
+
+        patch_response = self.client.patch(
+            reverse('get-total-earnings-by-category'), **self.headers)
+        self.assertEqual(patch_response.status_code, 405)
+
+        delete_response = self.client.delete(
+            reverse('get-total-earnings-by-category'), **self.headers)
+        self.assertEqual(delete_response.status_code, 405)
+
+
+class TestGetTotalEarningsByCountry(APITestCase):
+    def setUp(self):
+        self.email = 'test_user@gmail.com'
+        self.password = 'a12341234'
+        self.new_user = get_user_model().objects.create_user(email=self.email,
+                                                             fullname='Test User', password=self.password,
+                                                             is_active=True, is_staff=True)
+        self.new_user_2 = get_user_model().objects.create_user(email='test_user2@gmail.com',
+                                                               fullname='Test User', password=self.password,
+                                                               is_active=True)
+
+        login_response = self.client.post(reverse('token_obtain_pair'), data={
+            'email': self.email, 'password': self.password})
+        self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
+            'email': 'test_user2@gmail.com', 'password': self.password})
+
+        self.token = login_response.json()['token']
+        self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+
+        self.sub_category = SubCategory.objects.create(
+            name="Test Sub Category")
+        self.new_product = Product.objects.create(name='new product',
+                                                  description='test desciption',
+                                                  user=self.new_user, brand='Amazon',
+                                                  subCategory=self.sub_category, price=500,
+                                                  countInStock=12)
+        self.new_product_2 = Product.objects.create(name='new product 2',
+                                                    description='test desciption 2',
+                                                    user=self.new_user, brand='Apple',
+                                                    subCategory=self.sub_category, price=500,
+                                                    countInStock=12)
+        self.new_product_3 = Product.objects.create(name='new product 3',
+                                                    description='test desciption 3',
+                                                    user=self.new_user, brand='Sony',
+                                                    subCategory=self.sub_category, price=500,
+                                                    countInStock=12)
+
+        self.new_order_1 = Order.objects.create(user=self.new_user, paymentMethod='testmethod',
+                                                taxPrice=300, totalPrice=3350, shippingPrice=50)
+        self.new_order_item = OrderItem.objects.create(product=self.new_product, order=self.new_order_1,
+                                                       name='testorderitem', qty=4, price=2000)
+        self.new_order_item_2 = OrderItem.objects.create(product=self.new_product_2, order=self.new_order_1,
+                                                         name='testorderitem', qty=2, price=1000)
+        self.new_shipping_address_1 = ShippingAddress.objects.create(order=self.new_order_1, address='testaddress',
+                                                                     city='Test City 1', postalCode=1234,
+                                                                     country='Test Country 1')
+
+        self.new_order_2 = Order.objects.create(user=self.new_user, paymentMethod='testmethod',
+                                                taxPrice=50, totalPrice=1600, shippingPrice=50)
+        self.new_order_item_3 = OrderItem.objects.create(product=self.new_product_3, order=self.new_order_2,
+                                                         name='testorderitem', qty=3, price=1500)
+
+        self.new_shipping_address_2 = ShippingAddress.objects.create(order=self.new_order_2, address='testaddress',
+                                                                     city='Test City 2', postalCode=1234,
+                                                                     country='Test Country 2')
+
+    def test_get_total_earnings_by_country_route_success(self):
+        response = self.client.get(
+            reverse('get-total-earnings-by-country'), **self.headers)
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_total_earnings_by_country_success_content(self):
+        response = self.client.get(
+            reverse('get-total-earnings-by-country'), **self.headers)
+        self.assertEqual(len(response.json()), 2)
+        self.assertTrue(response.json()[self.new_shipping_address_1.country])
+        self.assertTrue(response.json()[self.new_shipping_address_2.country])
+        self.assertEqual(response.json()[self.new_shipping_address_1.country]['totalEarnings'],
+                         self.new_order_item.price + self.new_order_item_2.price)
+        self.assertEqual(
+            response.json()[self.new_shipping_address_1.country]['count'], 2)
+        self.assertEqual(response.json()[
+                         self.new_shipping_address_2.country]['totalEarnings'], self.new_order_item_3.price)
+        self.assertEqual(
+            response.json()[self.new_shipping_address_2.country]['count'], 1)
+
+    def test_get_total_earnings_by_country_same_country_different_orders(self):
+        """Total earnings and count should depend on the name of the country not the order or shipping address"""
+        self.new_shipping_address_2.country = self.new_shipping_address_1.country
+        self.new_shipping_address_2.save()
+        response = self.client.get(
+            reverse('get-total-earnings-by-country'), **self.headers)
+        self.assertEqual(len(response.json()), 1)
+        self.assertEqual(response.json()[self.new_shipping_address_1.country]['totalEarnings'],
+                         self.new_order_item.price + self.new_order_item_2.price + self.new_order_item_3.price)
+        self.assertEqual(
+            response.json()[self.new_shipping_address_1.country]['count'], 3)
+
+    def test_get_total_earnings_by_country_fails_no_staff(self):
+        token = self.login_response_2.json()['token']
+        headers = {'HTTP_AUTHORIZATION': f'JWT {token}'}
+
+        response = self.client.get(
+            reverse('get-total-earnings-by-country'), **headers)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_get_total_earnings_by_country_fails_no_auth(self):
+        response = self.client.get(
+            reverse('get-total-earnings-by-country'))
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_total_earnings_by_country_fails_wrong_method(self):
+        post_response = self.client.post(
+            reverse('get-total-earnings-by-country'), **self.headers)
+        self.assertEqual(post_response.status_code, 405)
+
+        put_response = self.client.put(
+            reverse('get-total-earnings-by-country'), **self.headers)
+        self.assertEqual(put_response.status_code, 405)
+
+        patch_response = self.client.patch(
+            reverse('get-total-earnings-by-country'), **self.headers)
+        self.assertEqual(patch_response.status_code, 405)
+
+        delete_response = self.client.delete(
+            reverse('get-total-earnings-by-country'), **self.headers)
+        self.assertEqual(delete_response.status_code, 405)
+
+
+class TestGetAllPendingRequests(APITestCase):
+    def setUp(self):
+        self.email = 'test_user@gmail.com'
+        self.password = 'a12341234'
+        self.new_user = get_user_model().objects.create_user(email=self.email,
+                                                             fullname='Test User', password=self.password,
+                                                             is_active=True, is_staff=True)
+        self.new_user_2 = get_user_model().objects.create_user(email='test_user2@gmail.com',
+                                                               fullname='Test User', password=self.password,
+                                                               is_active=True)
+
+        login_response = self.client.post(reverse('token_obtain_pair'), data={
+            'email': self.email, 'password': self.password})
+        self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
+            'email': 'test_user2@gmail.com', 'password': self.password})
+
+        self.token = login_response.json()['token']
+        self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+
+        self.new_order_1 = Order.objects.create(user=self.new_user, paymentMethod='testmethod1',
+                                                taxPrice=300, totalPrice=3350, shippingPrice=50, isPaid=True)
+
+        self.new_order_2 = Order.objects.create(user=self.new_user, paymentMethod='testmethod2',
+                                                taxPrice=50, totalPrice=1600, shippingPrice=50, isPaid=True)
+
+        self.new_order_3 = Order.objects.create(user=self.new_user, paymentMethod='testmethod3',
+                                                taxPrice=50, totalPrice=1800, shippingPrice=50)
+
+    def test_get_all_pending_requests_route_success(self):
+        response = self.client.get(
+            reverse('get-all-pending-requests'), **self.headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_all_pending_requests_success_content(self):
+        response = self.client.get(
+            reverse('get-all-pending-requests'), **self.headers)
+        self.assertEqual(len(response.json()), 2)
+        self.assertEqual(
+            response.json()[0]['paymentMethod'], self.new_order_1.paymentMethod)
+        self.assertEqual(
+            response.json()[1]['paymentMethod'], self.new_order_2.paymentMethod)
+        self.assertEqual(response.json()[0]['isPaid'], self.new_order_1.isPaid)
+        self.assertEqual(response.json()[1]['isPaid'], self.new_order_2.isPaid)
+        self.assertEqual(
+            response.json()[0]['isDelivered'], self.new_order_1.isDelivered)
+        self.assertEqual(
+            response.json()[1]['isDelivered'], self.new_order_2.isDelivered)
+
+    def test_get_all_pending_requests_change_is_paid(self):
+        """Changing not paid and not delivered order to paid should add it to the response"""
+        self.new_order_3.isPaid = True
+        self.new_order_3.save()
+        response = self.client.get(
+            reverse('get-all-pending-requests'), **self.headers)
+        self.assertEqual(len(response.json()), 3)
+        self.assertEqual(
+            response.json()[2]['paymentMethod'], self.new_order_3.paymentMethod)
+
+    def test_get_all_pending_requests_change_is_delivered(self):
+        """Changing paid and not delivered order to delivered should remove it from the response"""
+        self.new_order_2.isDelivered = True
+        self.new_order_2.save()
+        response = self.client.get(
+            reverse('get-all-pending-requests'), **self.headers)
+        self.assertEqual(len(response.json()), 1)
+
+    def test_get_all_pending_requests_fails_no_staff(self):
+        token = self.login_response_2.json()['token']
+        headers = {'HTTP_AUTHORIZATION': f'JWT {token}'}
+
+        response = self.client.get(
+            reverse('get-all-pending-requests'), **headers)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_get_all_pending_requests_fails_no_auth(self):
+        response = self.client.get(
+            reverse('get-all-pending-requests'))
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_all_pending_requests_fails_wrong_method(self):
+        post_response = self.client.post(
+            reverse('get-all-pending-requests'), **self.headers)
+        self.assertEqual(post_response.status_code, 405)
+
+        put_response = self.client.put(
+            reverse('get-all-pending-requests'), **self.headers)
+        self.assertEqual(put_response.status_code, 405)
+
+        patch_response = self.client.patch(
+            reverse('get-all-pending-requests'), **self.headers)
+        self.assertEqual(patch_response.status_code, 405)
+
+        delete_response = self.client.delete(
+            reverse('get-all-pending-requests'), **self.headers)
+        self.assertEqual(delete_response.status_code, 405)
