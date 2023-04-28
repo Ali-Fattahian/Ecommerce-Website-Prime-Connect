@@ -50,7 +50,7 @@ def addOrderItems(request):
                 product = models.Product.objects.get(id=orderItem['id'])
                 item = models.OrderItem.objects.create(product=product, order=order,
                                                        name=product.name, qty=orderItem['productQuantity'],
-                                                       price=orderItem['price'], image=product.image1.url)
+                                                       price=product.price, image=product.image1.url)
                 product.countInStock -= item.qty
                 product.save()
 

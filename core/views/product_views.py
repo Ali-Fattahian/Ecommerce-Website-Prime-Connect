@@ -1,5 +1,5 @@
 from rest_framework import generics, status, permissions
-from django.db.models.functions import TruncMonth
+from django.db.models.functions import TruncMonth, TruncDay
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
@@ -136,6 +136,28 @@ def delete_product_images(request, pk):
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAdminUser])
+def get_total_annual_orders(request):
+    now = datetime.now()
+    now_aware = now.replace(tzinfo=pytz.UTC)
+    last_year = now_aware - timedelta(days=365)
+    last_year_orders = models.Order.objects.filter(
+        createdAt__gte=last_year).count()
+    return Response(last_year_orders, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def get_total_monthly_orders(request):
+    now = datetime.now()
+    now_aware = now.replace(tzinfo=pytz.UTC)
+    last_month = now_aware - timedelta(days=30)
+    last_month_orders = models.Order.objects.filter(
+        createdAt__gte=last_month).count()
+    return Response(last_month_orders, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
 def get_total_monthly_earnings(request):
     now = datetime.now()
     now_aware = now.replace(tzinfo=pytz.UTC)
@@ -168,12 +190,12 @@ def get_monthly_earnings_by_days(request):
     now = datetime.now()
     now_aware = now.replace(tzinfo=pytz.UTC)
     last_month = now_aware - timedelta(days=30)
-    queryset = models.OrderItem.objects.filter(dateCreated__gte=last_month).values(
-        'dateCreated').order_by('dateCreated').annotate(totalEarnings=Sum('price'))
+    queryset = models.OrderItem.objects.filter(dateCreated__gte=last_month).annotate(day=TruncDay('dateCreated')).values(
+        'day')[0:10].annotate(totalEarnings=Sum('price')).values('day', 'totalEarnings')
     monthly_earnings = []
     for obj in queryset:
         monthly_earnings.append({
-            'dateCreated': obj['dateCreated'],
+            'dateCreated': obj['day'],
             'totalEarnings': obj['totalEarnings']
         })
     return Response(monthly_earnings, status=status.HTTP_200_OK)
@@ -252,6 +274,6 @@ def get_total_earnings_by_country(request):
 @api_view(['GET'])
 @permission_classes([permissions.IsAdminUser])
 def get_all_pending_requests(request):
-    queryset = models.Order.objects.filter(isPaid=True, isDelivered=False)
-    serializer = serializers.OrderSerializer(queryset, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    orders = models.Order.objects.filter(
+        isPaid=True, isDelivered=False).count()
+    return Response(orders, status=status.HTTP_200_OK)

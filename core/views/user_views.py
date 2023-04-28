@@ -46,8 +46,11 @@ class GetUserProfile(generics.RetrieveDestroyAPIView):
 @permission_classes([permissions.IsAuthenticated])
 def update_user_profile(request, pk):
     user = get_object_or_404(get_user_model(), id=pk)
-    if request.user.is_staff == False or request.user.id != user.id:
+    if request.user.is_staff == False:
         return Response({'detail': 'You don\'nt have the permission for this request'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    if request.user.id != user.id and user.is_staff:
+        return Response({'detail': 'You can\'nt edit an admin level account'}, status=status.HTTP_401_UNAUTHORIZED)
 
     serializer = UserSerializerWithToken(user, many=False)
 
@@ -66,7 +69,10 @@ def update_user_profile(request, pk):
     else:
         user.email = email
 
-    if request.data.get('password') and request.data['password'] != '':
+    if request.data.get('password'):
+        sent_password = request.data['password']
+
+    if request.user == user and sent_password != '': # Only allowed to change your own password
         user.password = make_password(request.data['password'])
 
     user.save()
@@ -132,7 +138,7 @@ class AllReceivedMessages(generics.ListAPIView):
     permission_classes = [permissions.IsAdminUser]
 
     def get_queryset(self):
-        return Message.objects.filter(recipient=self.request.user)
+        return Message.objects.filter(recipient=self.request.user).order_by('-createdAt')
 
 
 class AllSentMessages(generics.ListAPIView):
@@ -140,7 +146,7 @@ class AllSentMessages(generics.ListAPIView):
     permission_classes = [permissions.IsAdminUser]
 
     def get_queryset(self):
-        return Message.objects.filter(sender=self.request.user)
+        return Message.objects.filter(sender=self.request.user).order_by('-createdAt')
 
 
 class ReceivedMessageDetail(generics.RetrieveAPIView):
@@ -165,10 +171,11 @@ class SentMessageDetail(generics.RetrieveAPIView):
     def get_object(self):
         pk = self.kwargs.get('pk')
         message = get_object_or_404(Message, pk=pk)
-        if self.request.user == message.sender:
+        if self.request.user == message.recipient:
             message.isRead = True
             message.save()
             return message
+        return message
 
 
 @api_view(['PUT'])
