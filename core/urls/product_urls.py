@@ -4,6 +4,10 @@ from core.views import product_views
 
 urlpatterns = [
     path('', product_views.ProductListView.as_view(), name='product-list'),
+    path('popular-products', product_views.PopularProductsListView.as_view(),
+         name='popular-products'),
+    path('new-products', product_views.NewProductsListView.as_view(),
+         name='new-products'),
     path('sub-categories', product_views.SubCategoryListView.as_view(),
          name='sub-category-list'),
     path('create-review/<str:product_id>',

@@ -1,6 +1,6 @@
 from rest_framework import generics, status, permissions
 from django.db.models.functions import TruncMonth, TruncDay
-from django.db.models import Sum
+from django.db.models import Sum, Count
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from django.core.files import File
@@ -27,6 +27,17 @@ class ProductListView(generics.ListAPIView):
                        'rating', 'price', 'discount', 'createdAt']
     # pagination_class = pagination.PageNumberPagination
     # page_size = 15
+
+
+class PopularProductsListView(generics.ListAPIView):
+    queryset = models.Product.objects.annotate(
+        total_rating=Sum('review__rating')).order_by('-total_rating')[:5]  # Order by sum of all ratings for the product
+    serializer_class = serializers.ProductSerializer
+
+
+class NewProductsListView(generics.ListAPIView):
+    serializer_class = serializers.ProductSerializer
+    queryset = models.Product.objects.all().order_by('-createdAt')[:5]
 
 
 class ProductDetailView(generics.RetrieveDestroyAPIView):
