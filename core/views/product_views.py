@@ -1,6 +1,6 @@
 from rest_framework import generics, status, permissions
 from django.db.models.functions import TruncMonth, TruncDay
-from django.db.models import Sum, Count
+from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from django.core.files import File
@@ -15,16 +15,35 @@ from core import models
 from core import serializers
 
 
+class OrderingFilterExtraPopularOption(OrderingFilter):
+    """
+    If you pass rating as an ordering param, Add ordering based on
+    total number of ratings in addition to the rest of orderings 
+    """
+    def filter_queryset(self, request, queryset, view):
+        ordering = self.get_ordering(request, queryset, view)
+
+        if ordering:
+            if 'rating' in ordering:
+                return queryset.annotate(
+                    total_rating=Sum('review__rating')).order_by('-total_rating', *ordering)[:5]
+            return queryset.order_by(*ordering)
+
+        return queryset
+
+
 class ProductListView(generics.ListAPIView):
     queryset = models.Product.objects.all()
     serializer_class = serializers.ProductSerializer
-    filter_backends = (SearchFilter, OrderingFilter, DjangoFilterBackend)
+    filter_backends = (
+        SearchFilter, OrderingFilterExtraPopularOption, DjangoFilterBackend)
     search_fields = ['name', 'brand', 'subCategory__name',
                      'hasDiscount']  # Add exist(count is stock > 0)
     filterset_fields = ['name', 'brand', 'subCategory__name',
                         'hasDiscount']  # Add a price range filter
     ordering_fields = ['name', 'brand', 'subCategory',
-                       'rating', 'price', 'discount', 'createdAt']
+                       'price', 'discount', 'createdAt', 'rating']
+
     # pagination_class = pagination.PageNumberPagination
     # page_size = 15
 
