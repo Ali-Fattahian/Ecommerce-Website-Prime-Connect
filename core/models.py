@@ -104,14 +104,6 @@ class Product(models.Model):
     discount = models.IntegerField(blank=True, default=0, validators=[
                                    MinValueValidator(0), MaxValueValidator(99)])
 
-    @property
-    def suggests(self):
-        products = Product.objects.filter(
-            subCategory=self.subCategory, hasDiscount=True)
-        if len(products) > 4:
-            products = products[:5]
-        return products
-
     def __str__(self):
         return self.name
 

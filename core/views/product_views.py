@@ -20,6 +20,7 @@ class OrderingFilterExtraPopularOption(OrderingFilter):
     If you pass rating as an ordering param, Add ordering based on
     total number of ratings in addition to the rest of orderings 
     """
+
     def filter_queryset(self, request, queryset, view):
         ordering = self.get_ordering(request, queryset, view)
 
@@ -57,6 +58,20 @@ class PopularProductsListView(generics.ListAPIView):
 class NewProductsListView(generics.ListAPIView):
     serializer_class = serializers.ProductSerializer
     queryset = models.Product.objects.all().order_by('-createdAt')[:5]
+
+
+class ProductSuggestions(generics.ListAPIView):
+    """The goal is to get 5 products from
+       the same sub category that have discount"""
+    serializer_class = serializers.ProductSerializer
+
+    def get_queryset(self):
+        product = get_object_or_404(models.Product, pk=self.kwargs['pk'])
+        products = models.Product.objects.filter(
+            subCategory=product.subCategory, hasDiscount=True).exclude(id=product.id).order_by('-createdAt')
+        if len(products) > 5:
+            products = products[:5]
+        return products
 
 
 class ProductDetailView(generics.RetrieveDestroyAPIView):
