@@ -116,10 +116,16 @@ class TestGetProfileRoute(APITestCase):
         self.test_user = get_user_model().objects.create_user(
             email=self.email, password=self.password, fullname='Test User', is_active=True, is_staff=True)
         self.test_user_2 = get_user_model().objects.create_user(
-            email='test_user2@gmail.com', password=self.password, fullname='Test User', is_active=True, is_staff=False)
+            email='test_user2@gmail.com', password=self.password, fullname='Test User 2', is_active=True, is_staff=False)
+        self.test_user_3 = get_user_model().objects.create_user(
+            email='test_user3@gmail.com', password=self.password, fullname='Test User 3', is_active=True, is_staff=False)
+        self.test_user_4 = get_user_model().objects.create_user(
+            email='test_user4@gmail.com', password=self.password, fullname='Test User 4', is_active=True, is_staff=True)
 
         login_response = self.client.post(reverse('token_obtain_pair'), data={
             'email': self.email, 'password': self.password})
+        self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
+            'email': 'test_user2@gmail.com', 'password': self.password})
 
         self.token = login_response.json()['token']
         self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
@@ -129,25 +135,31 @@ class TestGetProfileRoute(APITestCase):
             reverse('get-profile-pk', args=[self.test_user.id]), **self.headers)
         self.assertEqual(response.status_code, 200)
 
-    def test_get_profile_delete_request_another_user(self):
+    def test_get_profile_success_content(self):
+        response = self.client.get(
+            reverse('get-profile-pk', args=[self.test_user.id]), **self.headers)
+        self.assertEqual(str(response.json()['id']), str(self.test_user.id))
+        self.assertEqual(response.json()['fullname'], self.test_user.fullname)
+        self.assertEqual(response.json()['email'], self.test_user.email)
+
+    def test_profile_delete_another_user_success(self):
+        """A staff member is allowed to delete non staff users"""
         response = self.client.delete(
             reverse('get-profile-pk', args=[self.test_user_2.id]), **self.headers)
         self.assertEqual(response.status_code, 204)
 
-    def test_get_profile_delete_request_user(self):
-        response = self.client.delete(
-            reverse('get-profile-pk', args=[self.test_user.id]), **self.headers)
-        self.assertEqual(response.status_code, 204)
-
-    # def test_get_profile_delete_request_not_allowed(self):
-    #     """Non staff user can't delete another user"""
-    #     login_response = self.client.post(reverse('token_obtain_pair'), data={
-    #         'email': 'test_user2@gmail.com', 'password': self.password})
-
-    #     token = login_response.json()['token']
-    #     headers = {"HTTP_AUTHORIZATION": f'JWT {token}'}
+    # def test_profile_delete_other_staff_fail(self):
+    #     """A staff member is not allowed to delete other staff members"""
     #     response = self.client.delete(
-    #         reverse('get-profile-pk', args=[self.test_user.id]), **headers)
+    #         reverse('get-profile-pk', args=[self.test_user_4.id]), **self.headers)
+    #     self.assertEqual(response.status_code, 401)
+
+    # def test_profile_delete_other_user_fail(self):
+    #     """A user is not allowed to delete other users"""
+    #     token = self.login_response_2.json()['token']
+    #     headers = {'HTTP_AUTHORIZATION': f'JWT {token}'}
+    #     response = self.client.delete(
+    #         reverse('get-profile-pk', args=[self.test_user_3.id]), **headers)
     #     self.assertEqual(response.status_code, 401)
 
 
@@ -235,6 +247,7 @@ class TestGetUsers(APITestCase):
         response = self.client.get(
             reverse('get-users'), format='json', **self.headers)
         self.assertEqual(len(response.json()), 1)
+        self.assertEqual(str(response.json()[0]['id']), str(self.test_user.id))
         self.assertEqual(response.json()[0]['email'], self.test_user.email)
         self.assertEqual(response.json()[0]
                          ['fullname'], self.test_user.fullname)
@@ -1112,9 +1125,9 @@ class TestAddOrderItems(APITestCase):
         response = self.client.post(
             reverse('create-order-items'), format='json', data={
                 'paymentMethod': 'testmethod',
-                'shippingPrice': 399,
+                'shippingPrice': 50,
                 'taxPrice': 50,
-                'totalPrice': 449,
+                'totalPrice': 5090,
                 'shippingAddress': {
                     'address': 'test address',
                     'city': 'test city',
@@ -1122,7 +1135,7 @@ class TestAddOrderItems(APITestCase):
                     'country': 'test country'
                 },
                 'orderItems':
-                    [{'id': self.new_product.id, 'productQuantity': 10, 'price': 399}]
+                    [{'id': self.new_product.id, 'productQuantity': 10, 'price': 499}]
 
             }, **self.headers)
 
@@ -1130,7 +1143,7 @@ class TestAddOrderItems(APITestCase):
         self.assertEqual(
             response.json()['orderItems'][0]['name'], self.new_product.name)
         self.assertEqual(response.json()['orderItems'][0]['qty'], 10)
-        self.assertEqual(response.json()['orderItems'][0]['price'], '399.00')
+        self.assertEqual(response.json()['orderItems'][0]['price'], '499.00')
         self.assertEqual(
             response.json()['orderItems'][0]['product'], self.new_product.id)
         self.assertTrue(self.new_product.image1.name in response.json()[
@@ -1152,8 +1165,8 @@ class TestAddOrderItems(APITestCase):
 
         self.assertEqual(response.json()['paymentMethod'], 'testmethod')
         self.assertEqual(response.json()['taxPrice'], '50.00')
-        self.assertEqual(response.json()['shippingPrice'], '399.00')
-        self.assertEqual(response.json()['totalPrice'], '449.00')
+        self.assertEqual(response.json()['shippingPrice'], '50.00')
+        self.assertEqual(response.json()['totalPrice'], '5090.00')
 
     def test_add_order_items_fail_no_auth(self):
         response = self.client.post(
@@ -1526,20 +1539,6 @@ class TestAllReceivedMessages(APITestCase):
             reverse('received-messages'), **self.headers)
         self.assertEqual(len(response.json()), 2)
         self.assertEqual(
-            response.json()[0]['sender']['email'], self.new_user_2.email)
-        self.assertEqual(
-            response.json()[0]['sender']['fullname'], self.new_user_2.fullname)
-        self.assertEqual(
-            response.json()[0]['sender']['isAdmin'], self.new_user_2.is_staff)
-        self.assertEqual(
-            response.json()[0]['recipient']['email'], self.new_user.email)
-        self.assertEqual(
-            response.json()[0]['recipient']['fullname'], self.new_user.fullname)
-        self.assertEqual(
-            response.json()[0]['recipient']['isAdmin'], self.new_user.is_staff)
-        self.assertEqual(response.json()[0]['content'], 'test message')
-        self.assertEqual(response.json()[0]['isRead'], False)
-        self.assertEqual(
             response.json()[1]['sender']['email'], self.new_user_2.email)
         self.assertEqual(
             response.json()[1]['sender']['fullname'], self.new_user_2.fullname)
@@ -1551,8 +1550,22 @@ class TestAllReceivedMessages(APITestCase):
             response.json()[1]['recipient']['fullname'], self.new_user.fullname)
         self.assertEqual(
             response.json()[1]['recipient']['isAdmin'], self.new_user.is_staff)
-        self.assertEqual(response.json()[1]['content'], 'test message 2')
+        self.assertEqual(response.json()[1]['content'], self.message_1.content)
         self.assertEqual(response.json()[1]['isRead'], False)
+        self.assertEqual(
+            response.json()[0]['sender']['email'], self.new_user_2.email)
+        self.assertEqual(
+            response.json()[0]['sender']['fullname'], self.new_user_2.fullname)
+        self.assertEqual(
+            response.json()[0]['sender']['isAdmin'], self.new_user_2.is_staff)
+        self.assertEqual(
+            response.json()[0]['recipient']['email'], self.new_user.email)
+        self.assertEqual(
+            response.json()[0]['recipient']['fullname'], self.new_user.fullname)
+        self.assertEqual(
+            response.json()[0]['recipient']['isAdmin'], self.new_user.is_staff)
+        self.assertEqual(response.json()[0]['content'], self.message_2.content)
+        self.assertEqual(response.json()[0]['isRead'], False)
 
     def test_all_received_messages_fails_no_auth(self):
         response = self.client.get(
@@ -1597,29 +1610,15 @@ class TestAllSentMessages(APITestCase):
         self.message_2 = Message.objects.create(sender=self.new_user,
                                                 recipient=self.new_user_2, content='test message 2')
 
-    def test_all_received_messages_route_success(self):
+    def test_all_sent_messages_route_success(self):
         response = self.client.get(
             reverse('sent-messages'), **self.headers)
         self.assertEqual(response.status_code, 200)
 
-    def test_all_received_messages_success_content(self):
+    def test_all_sent_messages_success_content(self):
         response = self.client.get(
             reverse('sent-messages'), **self.headers)
         self.assertEqual(len(response.json()), 2)
-        self.assertEqual(
-            response.json()[0]['sender']['email'], self.new_user.email)
-        self.assertEqual(
-            response.json()[0]['sender']['fullname'], self.new_user.fullname)
-        self.assertEqual(
-            response.json()[0]['sender']['isAdmin'], self.new_user.is_staff)
-        self.assertEqual(
-            response.json()[0]['recipient']['email'], self.new_user_2.email)
-        self.assertEqual(
-            response.json()[0]['recipient']['fullname'], self.new_user_2.fullname)
-        self.assertEqual(
-            response.json()[0]['recipient']['isAdmin'], self.new_user_2.is_staff)
-        self.assertEqual(response.json()[0]['content'], 'test message')
-        self.assertEqual(response.json()[0]['isRead'], False)
         self.assertEqual(
             response.json()[1]['sender']['email'], self.new_user.email)
         self.assertEqual(
@@ -1632,15 +1631,29 @@ class TestAllSentMessages(APITestCase):
             response.json()[1]['recipient']['fullname'], self.new_user_2.fullname)
         self.assertEqual(
             response.json()[1]['recipient']['isAdmin'], self.new_user_2.is_staff)
-        self.assertEqual(response.json()[1]['content'], 'test message 2')
+        self.assertEqual(response.json()[1]['content'], self.message_1.content)
         self.assertEqual(response.json()[1]['isRead'], False)
+        self.assertEqual(
+            response.json()[0]['sender']['email'], self.new_user.email)
+        self.assertEqual(
+            response.json()[0]['sender']['fullname'], self.new_user.fullname)
+        self.assertEqual(
+            response.json()[0]['sender']['isAdmin'], self.new_user.is_staff)
+        self.assertEqual(
+            response.json()[0]['recipient']['email'], self.new_user_2.email)
+        self.assertEqual(
+            response.json()[0]['recipient']['fullname'], self.new_user_2.fullname)
+        self.assertEqual(
+            response.json()[0]['recipient']['isAdmin'], self.new_user_2.is_staff)
+        self.assertEqual(response.json()[0]['content'], self.message_2.content)
+        self.assertEqual(response.json()[0]['isRead'], False)
 
-    def test_all_received_messages_fails_no_auth(self):
+    def test_all_sent_messages_fails_no_auth(self):
         response = self.client.get(
             reverse('sent-messages'))
         self.assertEqual(response.status_code, 401)
 
-    def test_all_received_messages_fails_wrong_method(self):
+    def test_all_sent_messages_fails_wrong_method(self):
         put_response = self.client.put(
             reverse('sent-messages'))
         self.assertEqual(put_response.status_code, 401)
@@ -1750,7 +1763,7 @@ class TestSentMessageDetail(APITestCase):
         self.message_1 = Message.objects.create(sender=self.new_user,
                                                 recipient=self.new_user_2, content='test message')
         self.message_2 = Message.objects.create(sender=self.new_user_2,
-                                                recipient=self.new_user, content='test message 2')
+                                                recipient=self.new_user_3, content='test message 2')
 
     def test_sent_message_detail_route_success(self):
         response = self.client.get(
@@ -1774,10 +1787,11 @@ class TestSentMessageDetail(APITestCase):
         self.assertEqual(
             response.json()['recipient']['isAdmin'], self.new_user_2.is_staff)
         self.assertEqual(response.json()['content'], 'test message')
-        self.assertEqual(response.json()['isRead'], True)
+        # Only recipient can set isRead to True
+        self.assertEqual(response.json()['isRead'], False)
 
-    def test_sent_message_detail_fail_not_recipient(self):
-        """Message exists but it should return an empty dictionary because the user is not the recipient of it"""
+    def test_sent_message_detail_fail_not_sender(self):
+        """Message exists but it should return an empty dictionary because the user is not the sender of it"""
         response = self.client.get(
             reverse('sent-message-detail', args=[self.message_2.id]), **self.headers)
         self.assertEqual(response.json()['content'], '')
@@ -1872,6 +1886,140 @@ class TestChangeMessageStatus(APITestCase):
         response = self.client.put(reverse(
             'change-message-status', args=[self.message_2.id]), format='json', **self.headers)
         self.assertEqual(response.status_code, 400)
+
+
+class TestGetTotalAnnualOrders(APITestCase):
+    def setUp(self):
+        self.email = 'test_user@gmail.com'
+        self.password = 'a12341234'
+        self.new_user = get_user_model().objects.create_user(email=self.email,
+                                                             fullname='Test User', password=self.password,
+                                                             is_active=True, is_staff=True)
+        self.new_user_2 = get_user_model().objects.create_user(email='test_user2@gmail.com',
+                                                               fullname='Test User', password=self.password,
+                                                               is_active=True)
+
+        login_response = self.client.post(reverse('token_obtain_pair'), data={
+            'email': self.email, 'password': self.password})
+        self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
+            'email': 'test_user2@gmail.com', 'password': self.password})
+
+        self.token = login_response.json()['token']
+        self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+
+        self.sub_category = SubCategory.objects.create(name="Test Category")
+        self.new_product = Product.objects.create(name='new product',
+                                                  description='test desciption',
+                                                  user=self.new_user, brand='Amazon',
+                                                  subCategory=self.sub_category, price=500,
+                                                  countInStock=12)
+        self.now = datetime.now()
+        self.now_aware = self.now.replace(tzinfo=pytz.UTC)
+        self.last_year = self.now_aware - timedelta(days=380)
+        self.new_order = Order.objects.create(user=self.new_user, paymentMethod='testmethod',
+                                              taxPrice=300, totalPrice=3000, shippingPrice=50)
+        self.new_order_2 = Order.objects.create(user=self.new_user, paymentMethod='testmethod2',
+                                                taxPrice=400, totalPrice=4000, shippingPrice=60)
+        self.new_order_3 = Order.objects.create(user=self.new_user, paymentMethod='testmethod3',
+                                                taxPrice=500, totalPrice=5000, shippingPrice=70)
+        self.new_order_3.createdAt = self.last_year
+        self.new_order_3.save()  # Was made last year, Shouldn't be in the results
+
+    def test_get_total_annual_orders_route_success(self):
+        response = self.client.get(
+            reverse('get-total-annual-orders'), **self.headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_total_annual_orders_success_content(self):
+        response = self.client.get(
+            reverse('get-total-annual-orders'), **self.headers)
+        self.assertEqual(response.json(), 2)
+
+    def test_get_total_annual_orders_change_date(self):
+        """Set createdAt for one of the order to last year and this should change total number of orders"""
+        self.new_order_2.createdAt = self.last_year
+        self.new_order_2.save()
+        response = self.client.get(
+            reverse('get-total-annual-orders'), **self.headers)
+        self.assertEqual(response.json(), 1)
+
+    def test_get_total_annual_orders_fail_no_staff(self):
+        token = self.login_response_2.json()['token']
+        headers = {'HTTP_AUTHORIZATION': f'JWT {token}'}
+        response = self.client.get(
+            reverse('get-total-annual-orders'), **headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_get_total_annual_orders_fail_no_auth(self):
+        response = self.client.get(reverse('get-total-annual-orders'))
+        self.assertEqual(response.status_code, 401)
+
+
+class TestGetTotalMonthlyOrders(APITestCase):
+    def setUp(self):
+        self.email = 'test_user@gmail.com'
+        self.password = 'a12341234'
+        self.new_user = get_user_model().objects.create_user(email=self.email,
+                                                             fullname='Test User', password=self.password,
+                                                             is_active=True, is_staff=True)
+        self.new_user_2 = get_user_model().objects.create_user(email='test_user2@gmail.com',
+                                                               fullname='Test User', password=self.password,
+                                                               is_active=True)
+
+        login_response = self.client.post(reverse('token_obtain_pair'), data={
+            'email': self.email, 'password': self.password})
+        self.login_response_2 = self.client.post(reverse('token_obtain_pair'), data={
+            'email': 'test_user2@gmail.com', 'password': self.password})
+
+        self.token = login_response.json()['token']
+        self.headers = {"HTTP_AUTHORIZATION": f'JWT {self.token}'}
+
+        self.sub_category = SubCategory.objects.create(name="Test Category")
+        self.new_product = Product.objects.create(name='new product',
+                                                  description='test desciption',
+                                                  user=self.new_user, brand='Amazon',
+                                                  subCategory=self.sub_category, price=500,
+                                                  countInStock=12)
+        self.now = datetime.now()
+        self.now_aware = self.now.replace(tzinfo=pytz.UTC)
+        self.last_month = self.now_aware - timedelta(weeks=5)
+        self.new_order = Order.objects.create(user=self.new_user, paymentMethod='testmethod',
+                                              taxPrice=300, totalPrice=3000, shippingPrice=50)
+        self.new_order_2 = Order.objects.create(user=self.new_user, paymentMethod='testmethod2',
+                                                taxPrice=400, totalPrice=4000, shippingPrice=60)
+        self.new_order_3 = Order.objects.create(user=self.new_user, paymentMethod='testmethod3',
+                                                taxPrice=500, totalPrice=5000, shippingPrice=70)
+        self.new_order_3.createdAt = self.last_month
+        self.new_order_3.save()  # Was made last month, Shouldn't be in the results
+
+    def test_get_total_monthly_orders_route_success(self):
+        response = self.client.get(
+            reverse('get-total-monthly-orders'), **self.headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_total_monthly_orders_success_content(self):
+        response = self.client.get(
+            reverse('get-total-monthly-orders'), **self.headers)
+        self.assertEqual(response.json(), 2)
+
+    def test_get_total_monthly_orders_change_date(self):
+        """Set createdAt for one of the order to last month and this should change total number of orders"""
+        self.new_order_2.createdAt = self.last_month
+        self.new_order_2.save()
+        response = self.client.get(
+            reverse('get-total-monthly-orders'), **self.headers)
+        self.assertEqual(response.json(), 1)
+
+    def test_get_total_monthly_orders_fail_no_staff(self):
+        token = self.login_response_2.json()['token']
+        headers = {'HTTP_AUTHORIZATION': f'JWT {token}'}
+        response = self.client.get(
+            reverse('get-total-monthly-orders'), **headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_get_total_monthly_orders_fail_no_auth(self):
+        response = self.client.get(reverse('get-total-monthly-orders'))
+        self.assertEqual(response.status_code, 401)
 
 
 class TestGetTotalMonthlyEarnings(APITestCase):
@@ -2684,17 +2832,7 @@ class TestGetAllPendingRequests(APITestCase):
     def test_get_all_pending_requests_success_content(self):
         response = self.client.get(
             reverse('get-all-pending-requests'), **self.headers)
-        self.assertEqual(len(response.json()), 2)
-        self.assertEqual(
-            response.json()[0]['paymentMethod'], self.new_order_1.paymentMethod)
-        self.assertEqual(
-            response.json()[1]['paymentMethod'], self.new_order_2.paymentMethod)
-        self.assertEqual(response.json()[0]['isPaid'], self.new_order_1.isPaid)
-        self.assertEqual(response.json()[1]['isPaid'], self.new_order_2.isPaid)
-        self.assertEqual(
-            response.json()[0]['isDelivered'], self.new_order_1.isDelivered)
-        self.assertEqual(
-            response.json()[1]['isDelivered'], self.new_order_2.isDelivered)
+        self.assertEqual(response.json(), 2)
 
     def test_get_all_pending_requests_change_is_paid(self):
         """Changing not paid and not delivered order to paid should add it to the response"""
@@ -2702,9 +2840,7 @@ class TestGetAllPendingRequests(APITestCase):
         self.new_order_3.save()
         response = self.client.get(
             reverse('get-all-pending-requests'), **self.headers)
-        self.assertEqual(len(response.json()), 3)
-        self.assertEqual(
-            response.json()[2]['paymentMethod'], self.new_order_3.paymentMethod)
+        self.assertEqual(response.json(), 3)
 
     def test_get_all_pending_requests_change_is_delivered(self):
         """Changing paid and not delivered order to delivered should remove it from the response"""
@@ -2712,7 +2848,7 @@ class TestGetAllPendingRequests(APITestCase):
         self.new_order_2.save()
         response = self.client.get(
             reverse('get-all-pending-requests'), **self.headers)
-        self.assertEqual(len(response.json()), 1)
+        self.assertEqual(response.json(), 1)
 
     def test_get_all_pending_requests_fails_no_staff(self):
         token = self.login_response_2.json()['token']

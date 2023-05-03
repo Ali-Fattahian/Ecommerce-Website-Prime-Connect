@@ -37,7 +37,7 @@ class GetUserProfile(generics.RetrieveDestroyAPIView):
     #     return super().handle_exception(exc)
 
     def perform_destroy(self, instance):
-        if self.request.user.is_staff == False or self.request.user.id != instance.id:
+        if self.request.user.is_staff == False or instance.is_staff:
             return Response({'detail': 'You don\'nt have the permission for this action'}, status=status.HTTP_401_UNAUTHORIZED)
         return super().perform_destroy(instance)
 
@@ -68,6 +68,8 @@ def update_user_profile(request, pk):
         return Response({'detail': e}, status=status.HTTP_400_BAD_REQUEST)
     else:
         user.email = email
+    
+    sent_password = ''
 
     if request.data.get('password'):
         sent_password = request.data['password']
@@ -161,6 +163,7 @@ class ReceivedMessageDetail(generics.RetrieveAPIView):
             message.isRead = True
             message.save()
             return message
+        return None
 
 
 class SentMessageDetail(generics.RetrieveAPIView):
@@ -175,7 +178,10 @@ class SentMessageDetail(generics.RetrieveAPIView):
             message.isRead = True
             message.save()
             return message
-        return message
+        elif self.request.user == message.sender:
+            return message
+        else:
+            return None
 
 
 @api_view(['PUT'])

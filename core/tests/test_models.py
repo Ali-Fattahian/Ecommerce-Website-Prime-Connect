@@ -142,6 +142,14 @@ class TestProduct(TestCase):
         self.assertEqual(self.new_product.image2, None)
         self.assertEqual(self.new_product.image3, None)
 
+    def test_product_deleted_after_user(self):
+        """Deleting user must also delete the product"""
+        self.new_user.delete()
+        query_results = Product.objects.filter(
+            brand='Amazon', description=self.description,
+            subCategory=self.sub_category, price=499)
+        self.assertEqual(len(query_results), 0)
+
 
 class TestReview(TestCase):
     def setUp(self):
@@ -272,6 +280,14 @@ class TestOrder(TestCase):
         self.assertIsInstance(order, Order)
         self.assertEqual(order.totalPrice, None)
 
+    def test_order_deleted_after_user(self):
+        """Deleting user must also delete the order"""
+        self.new_user.delete()
+        query_results = Order.objects.filter(
+            paymentMethod='testmethod', totalPrice=3000,
+            shippingPrice=300)
+        self.assertEqual(len(query_results), 0)
+
 
 class TestOrderItem(TestCase):
     def setUp(self):
@@ -351,7 +367,7 @@ class TestShippingAddress(TestCase):
                                               taxPrice=300, totalPrice=3000, shippingPrice=50)
         self.new_shipping_address = ShippingAddress.objects.create(order=self.new_order, address='testaddress',
                                                                    city='testcity', postalCode=1234,
-                                                                   country='testcountry', shippingPrice=100)
+                                                                   country='testcountry')
 
     def test_shipping_address_exists(self):
         self.assertIsInstance(self.new_shipping_address, ShippingAddress)
@@ -362,7 +378,6 @@ class TestShippingAddress(TestCase):
         self.assertEqual(self.new_shipping_address.address, 'testaddress')
         self.assertEqual(self.new_shipping_address.city, 'testcity')
         self.assertEqual(self.new_shipping_address.postalCode, 1234)
-        self.assertEqual(self.new_shipping_address.shippingPrice, 100)
         self.assertEqual(self.new_shipping_address.country, 'testcountry')
 
     def test_shipping_address_with_used_order(self):
@@ -370,13 +385,12 @@ class TestShippingAddress(TestCase):
         with self.assertRaises(IntegrityError):
             ShippingAddress.objects.create(address='testaddress', city='testcity',
                                            postalCode=1234, country='testcountry',
-                                           shippingPrice=100, order=self.new_order)
+                                           order=self.new_order)
 
     def test_shipping_address_without_order(self):
         """Shipping address can be created without order"""
         shipping_address = ShippingAddress.objects.create(address='testaddress', city='testcity',
-                                                          postalCode=1234, country='testcountry',
-                                                          shippingPrice=100)
+                                                          postalCode=1234, country='testcountry')
         self.assertIsInstance(shipping_address, ShippingAddress)
 
     def test_shipping_address_without_address(self):
@@ -384,8 +398,7 @@ class TestShippingAddress(TestCase):
         order = Order.objects.create(user=self.new_user, paymentMethod='testmethod',
                                      taxPrice=300, totalPrice=3000, shippingPrice=50)
         shipping_address = ShippingAddress.objects.create(order=order, city='testcity',
-                                                          postalCode=1234, country='testcountry',
-                                                          shippingPrice=100)
+                                                          postalCode=1234, country='testcountry')
         self.assertIsInstance(shipping_address, ShippingAddress)
 
     def test_shipping_address_without_city(self):
@@ -393,8 +406,7 @@ class TestShippingAddress(TestCase):
         order = Order.objects.create(user=self.new_user, paymentMethod='testmethod',
                                      taxPrice=300, totalPrice=3000, shippingPrice=50)
         shipping_address = ShippingAddress.objects.create(order=order, address='testaddress',
-                                                          postalCode=1234, country='testcountry',
-                                                          shippingPrice=100)
+                                                          postalCode=1234, country='testcountry')
         self.assertIsInstance(shipping_address, ShippingAddress)
 
     def test_shipping_address_without_postal_code(self):
@@ -402,8 +414,7 @@ class TestShippingAddress(TestCase):
         order = Order.objects.create(user=self.new_user, paymentMethod='testmethod',
                                      taxPrice=300, totalPrice=3000, shippingPrice=50)
         shipping_address = ShippingAddress.objects.create(address='testaddress', city='testcity',
-                                                          order=order, country='testcountry',
-                                                          shippingPrice=100)
+                                                          order=order, country='testcountry')
         self.assertIsInstance(shipping_address, ShippingAddress)
 
     def test_shipping_address_without_country(self):
@@ -411,27 +422,8 @@ class TestShippingAddress(TestCase):
         order = Order.objects.create(user=self.new_user, paymentMethod='testmethod',
                                      taxPrice=300, totalPrice=3000, shippingPrice=50)
         shipping_address = ShippingAddress.objects.create(address='testaddress', city='testcity',
-                                                          postalCode=1234, order=order,
-                                                          shippingPrice=100)
+                                                          postalCode=1234, order=order)
         self.assertIsInstance(shipping_address, ShippingAddress)
-
-    def test_shipping_address_without_shipping_price(self):
-        """Shipping address can be created without shipping price"""
-        order = Order.objects.create(user=self.new_user, paymentMethod='testmethod',
-                                     taxPrice=300, totalPrice=3000, shippingPrice=50)
-        shipping_address = ShippingAddress.objects.create(address='testaddress', city='testcity',
-                                                          postalCode=1234, country='testcountry',
-                                                          order=order)
-        self.assertIsInstance(shipping_address, ShippingAddress)
-
-    def test_order_item_price(self):
-        """Test the validator of shipping price field(too many digits)"""
-        order = Order.objects.create(user=self.new_user, paymentMethod='testmethod',
-                                     taxPrice=300, totalPrice=3000, shippingPrice=50)
-        with self.assertRaises(DecimalException):
-            ShippingAddress.objects.create(address='testaddress', city='testcity',
-                                           postalCode=1234, country='testcountry',
-                                           order=order, shippingPrice=100000)
 
     def test_shipping_address_deleted_after_order(self):
         """Test shipping address object gets deleted after deleting the related order"""
