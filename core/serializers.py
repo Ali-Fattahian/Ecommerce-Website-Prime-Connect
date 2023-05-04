@@ -72,6 +72,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class ProductCreateChangeSerializer(serializers.ModelSerializer):
+    user = serializers.ReadOnlyField(source='user.fullname')
     class Meta:
         model = models.Product
         fields = '__all__'
