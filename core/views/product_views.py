@@ -51,13 +51,13 @@ class ProductListView(generics.ListAPIView):
 
 class PopularProductsListView(generics.ListAPIView):
     queryset = models.Product.objects.annotate(
-        total_rating=Sum('review__rating')).order_by('-total_rating')[:5]  # Order by sum of all ratings for the product
+        total_rating=Sum('review__rating')).order_by('-total_rating')[:4]  # Order by sum of all ratings for the product
     serializer_class = serializers.ProductSerializer
 
 
 class NewProductsListView(generics.ListAPIView):
     serializer_class = serializers.ProductSerializer
-    queryset = models.Product.objects.all().order_by('-createdAt')[:5]
+    queryset = models.Product.objects.all().order_by('-createdAt')[:4]
 
 
 class ProductSuggestions(generics.ListAPIView):

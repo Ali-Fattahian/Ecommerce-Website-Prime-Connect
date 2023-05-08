@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from django.db.models import Sum
+from math import ceil
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from core import models
@@ -48,10 +50,10 @@ class ReviewSerializer(serializers.ModelSerializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    # suggests = serializers.ReadOnlyField()
     reviews = serializers.SerializerMethodField(read_only=True)
     numReviews = serializers.SerializerMethodField(read_only=True)
     subCategory = serializers.SerializerMethodField(read_only=True)
+    rating = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = models.Product
@@ -70,9 +72,20 @@ class ProductSerializer(serializers.ModelSerializer):
         serializer = SubCategorySerializer(subCategory)
         return serializer.data
 
+    def get_rating(self, obj):
+        reviews = obj.review_set.all().values('rating')
+        if (reviews.count() > 0):
+            total_rating = 0
+            for obj in reviews:
+                total_rating += obj['rating']
+            avg = total_rating / reviews.count()
+            return ceil(avg * 2) / 2
+        return 0
+
 
 class ProductCreateChangeSerializer(serializers.ModelSerializer):
     user = serializers.ReadOnlyField(source='user.fullname')
+
     class Meta:
         model = models.Product
         fields = '__all__'
