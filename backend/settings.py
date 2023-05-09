@@ -105,6 +105,13 @@ AUTH_USER_MODEL = 'core.CustomUser'
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+EMAIL_USE_TLS = True
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_HOST_USER = 'prim3conn3ct@gmail.com'
+EMAIL_HOST_PASSWORD = 'rgqh uito gqfr edbw'
+
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=30),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),

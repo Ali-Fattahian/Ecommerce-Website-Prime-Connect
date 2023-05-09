@@ -4,12 +4,18 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
-from core.serializers import UserSerializer, UserSerializerWithToken, MessageSerializer
+from core.serializers import UserSerializer, UserSerializerWithToken, MessageSerializer, ResetPasswordWithEmailWithSerializer, SetNewPasswordSerializer
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils.encoding import smart_str, smart_bytes, DjangoUnicodeDecodeError
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.contrib.sites.shortcuts import get_current_site
+from django.urls import reverse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from core.models import Message
+from core.utils import Utils
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -25,6 +31,50 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
+
+
+class RequestPasswordResetWithEmail(generics.GenericAPIView):
+    serializer_class = ResetPasswordWithEmailWithSerializer
+
+    def post(self, request):
+        email = request.data['email']
+        user = get_object_or_404(get_user_model(), email=email)
+        uidb64 = urlsafe_base64_encode(smart_bytes(user.id))
+        token = PasswordResetTokenGenerator().make_token(user)
+        current_site = get_current_site(
+            request=request).domain
+        relative_link = reverse(
+            'password-reset-confirm', kwargs={'uidb64': uidb64, 'token': token})
+        absolute_url = 'http://'+current_site + relative_link
+        email_body = f'Hello {user.fullname},\n Use the link below to reset your password\n {absolute_url}'
+        data = {'email_body': email_body, 'to_email': user.email,
+                'email_subject': 'Reset Your password'}
+        Utils.send_email(data)
+
+        return Response({'detail': 'We have sent you an email to reset your password'}, status=status.HTTP_200_OK)
+
+
+class PasswordTokenCheck(generics.GenericAPIView):
+    def get(self, request, uidb64, token):
+        try:
+            id = smart_str(urlsafe_base64_decode(uidb64))
+            user = get_object_or_404(get_user_model(), pk=id)
+
+            if not PasswordResetTokenGenerator().check_token(user, token):  # Used the same link before
+                return Response({'detail': 'Token is not valid, Please request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response({'detail': 'Credentials valid', 'uidb64': uidb64, 'token': token}, status=status.HTTP_200_OK)
+        except DjangoUnicodeDecodeError:
+            return Response({'detail': 'Token is not valid, Please request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SetNewPassword(generics.GenericAPIView):
+    serializer_class = SetNewPasswordSerializer
+
+    def patch(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response({'detail': 'Password reset was a success'}, status=status.HTTP_200_OK)
 
 
 class GetUserProfile(generics.RetrieveDestroyAPIView):
@@ -68,13 +118,13 @@ def update_user_profile(request, pk):
         return Response({'detail': e}, status=status.HTTP_400_BAD_REQUEST)
     else:
         user.email = email
-    
+
     sent_password = ''
 
     if request.data.get('password'):
         sent_password = request.data['password']
 
-    if request.user == user and sent_password != '': # Only allowed to change your own password
+    if request.user == user and sent_password != '':  # Only allowed to change your own password
         user.password = make_password(request.data['password'])
 
     user.save()
