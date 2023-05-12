@@ -16,6 +16,8 @@ urlpatterns = [
     path('update-profile/<str:pk>',
          views.update_user_profile, name='update-profile-pk'),
     path('send-message', views.send_message, name='send-message'),
+    path('messages/delete/<str:pk>',
+         views.MessageDeleteAPIView.as_view(), name='message-delete'),
     path('received-messages', views.AllReceivedMessages.as_view(),
          name='received-messages'),
     path('received-messages/change-message-status/<str:pk>',

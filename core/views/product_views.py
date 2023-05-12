@@ -41,7 +41,7 @@ class ProductListView(generics.ListAPIView):
     search_fields = ['name', 'brand', 'subCategory__name',
                      'hasDiscount']  # Add exist(count is stock > 0)
     filterset_fields = ['name', 'brand', 'subCategory__name',
-                        'hasDiscount']  # Add a price range filter
+                        'hasDiscount', 'subCategory__category__name']  # Add a price range filter
     ordering_fields = ['name', 'brand', 'subCategory',
                        'price', 'discount', 'createdAt', 'rating']
 

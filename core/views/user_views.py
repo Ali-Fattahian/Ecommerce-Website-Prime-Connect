@@ -14,6 +14,7 @@ from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 from core.models import Message
 from core.utils import Utils
 
@@ -51,7 +52,8 @@ class RequestPasswordResetWithEmail(generics.GenericAPIView):
                 'email_subject': 'Reset Your password'}
         Utils.send_email(data)
 
-        return Response({'detail': 'We have sent you an email to reset your password'}, status=status.HTTP_200_OK)
+        return Response({'detail': 'We have sent you an email to reset your password, \
+                          Please check the spam folder if you can not find it.'}, status=status.HTTP_200_OK)
 
 
 class PasswordTokenCheck(generics.GenericAPIView):
@@ -199,6 +201,17 @@ class AllSentMessages(generics.ListAPIView):
 
     def get_queryset(self):
         return Message.objects.filter(sender=self.request.user).order_by('-createdAt')
+
+
+class MessageDeleteAPIView(generics.DestroyAPIView):
+    serializer_class = MessageSerializer
+    queryset = Message.objects.all()
+    permission_classes = [permissions.IsAdminUser]
+
+    def perform_destroy(self, instance):
+        if (self.request.user == instance.recipient or self.request.user == instance.sender):
+            return super().perform_destroy(instance)
+        raise PermissionDenied('You are not allowed to delete this message')
 
 
 class ReceivedMessageDetail(generics.RetrieveAPIView):
