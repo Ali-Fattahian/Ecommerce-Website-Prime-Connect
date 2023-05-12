@@ -12,6 +12,8 @@ urlpatterns = [
          name='new-products'),
     path('sub-categories', product_views.SubCategoryListView.as_view(),
          name='sub-category-list'),
+    path('categories', product_views.CategoryListView.as_view(),
+         name='category-list'),
     path('create-review/<str:product_id>',
          product_views.review_create, name='create-review'),
     path('create-product', product_views.ProductCreateView.as_view(),

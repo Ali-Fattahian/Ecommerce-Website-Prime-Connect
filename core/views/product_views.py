@@ -110,6 +110,11 @@ class SubCategoryListView(generics.ListAPIView):
     serializer_class = serializers.SubCategorySerializer
 
 
+class CategoryListView(generics.ListAPIView):
+    queryset = models.Category.objects.all()
+    serializer_class = serializers.CategorySerializer
+
+
 class BrandListView(APIView):
     def get(self, request):
         brands = []
