@@ -1,13 +1,19 @@
 from pathlib import Path
+import os
 from datetime import timedelta
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+from dotenv import load_dotenv
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-&@2nr^&i)e^2q_f!2%-=-kl%4df68*cecyw_b8&=(n+e2_mw5$'
+SECRET_KEY = os.getenv('SECRET_KEY')
 
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost']
 
 
 INSTALLED_APPS = [
@@ -22,11 +28,14 @@ INSTALLED_APPS = [
     'core.apps.CoreConfig',
     'rest_framework_simplejwt',
     'corsheaders',
+    'cloudindary',
+    'cloudinary_storage',
 ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -62,12 +71,41 @@ TEMPLATES = [
 WSGI_APPLICATION = 'backend.wsgi.application'
 
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if not DEBUG:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+
+            'NAME': os.getenv('DB_NAME'),
+
+            'USER': os.getenv('DB_USER'),
+
+            'PASSWORD': os.getenv('DB_PASSWORD'),
+
+            'HOST': os.getenv('DB_HOST'),
+
+            'PORT': os.getenv('DB_PORT'),
+
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+
+            'NAME': os.getenv('DB_DEV_NAME'),
+
+            'USER': os.getenv('DB_DEV_USER'),
+
+            'PASSWORD': os.getenv('DB_DEV_PASSWORD'),
+
+            'HOST': os.getenv('DB_DEV_HOST'),
+
+            'PORT': os.getenv('DB_DEV_PORT'),
+
+        }
+    }
+
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -95,9 +133,12 @@ USE_TZ = True
 
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -108,8 +149,8 @@ CORS_ALLOW_ALL_ORIGINS = True
 EMAIL_USE_TLS = True
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
-EMAIL_HOST_USER = 'prim3conn3ct@gmail.com'
-EMAIL_HOST_PASSWORD = 'rgqh uito gqfr edbw'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 
 
 SIMPLE_JWT = {
@@ -138,3 +179,9 @@ SIMPLE_JWT = {
 
     'JTI_CLAIM': 'jti',
 }
+
+cloudinary.config(
+    cloud_name=os.getenv('CLOUDINARY_NAME'),
+    api_key=os.getenv('CLOUDINARY_API_KEY'),
+    api_secret=os.getenv('CLOUDINARY_API_SECRET')
+)
