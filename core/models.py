@@ -85,10 +85,9 @@ class Product(models.Model):
     user = models.ForeignKey(
         get_user_model(), on_delete=models.CASCADE)
     name = models.CharField(max_length=200, default='', blank=True)
-    image1 = CloudinaryField(
-        upload_to='products/', default='products/default-image.png', blank=True)
-    image2 = CloudinaryField(null=True, blank=True, upload_to='products/')
-    image3 = CloudinaryField(null=True, blank=True, upload_to='products/')
+    image1 = CloudinaryField(default='products/default-image.png', blank=True)
+    image2 = CloudinaryField(null=True, blank=True)
+    image3 = CloudinaryField(null=True, blank=True)
     brand = models.CharField(max_length=200, default='', blank=True)
     subCategory = models.ForeignKey(
         SubCategory, on_delete=models.SET_NULL, null=True)
