@@ -5,7 +5,6 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseU
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
-from cloudinary.models import CloudinaryField
 
 
 class CustomAccountManager(BaseUserManager):
@@ -85,9 +84,10 @@ class Product(models.Model):
     user = models.ForeignKey(
         get_user_model(), on_delete=models.CASCADE)
     name = models.CharField(max_length=200, default='', blank=True)
-    image1 = CloudinaryField(default='products/default-image.png', blank=True)
-    image2 = CloudinaryField(null=True, blank=True)
-    image3 = CloudinaryField(null=True, blank=True)
+    image1 = models.ImageField(
+        default='products/default-image.png', upload_to='products/', blank=True)
+    image2 = models.ImageField(upload_to='products/', null=True, blank=True)
+    image3 = models.ImageField(upload_to='products/', null=True, blank=True)
     brand = models.CharField(max_length=200, default='', blank=True)
     subCategory = models.ForeignKey(
         SubCategory, on_delete=models.SET_NULL, null=True)
