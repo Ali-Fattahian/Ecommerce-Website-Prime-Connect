@@ -13,7 +13,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['https://prime-connect.onrender.com']
+ALLOWED_HOSTS = ['*']
 
 
 INSTALLED_APPS = [
