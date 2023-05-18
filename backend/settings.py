@@ -11,16 +11,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 
-# DEBUG = 'RENDER' not in os.environ
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['https://prime-connect.onrender.com']
-
-
-RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
-if RENDER_EXTERNAL_HOSTNAME:
-    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
-
 
 
 INSTALLED_APPS = [
@@ -79,40 +72,40 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
-if not DEBUG:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+# if not DEBUG:
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
 
-            'NAME': os.getenv('DB_NAME'),
+        'NAME': os.getenv('DB_NAME'),
 
-            'USER': os.getenv('DB_USER'),
+        'USER': os.getenv('DB_USER'),
 
-            'PASSWORD': os.getenv('DB_PASSWORD'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
 
-            'HOST': os.getenv('DB_HOST'),
+        'HOST': os.getenv('DB_HOST'),
 
-            'PORT': os.getenv('DB_PORT'),
+        'PORT': os.getenv('DB_PORT'),
 
-        }
     }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
+}
+# else:
+#     DATABASES = {
+#         'default': {
+#             'ENGINE': 'django.db.backends.postgresql',
 
-            'NAME': os.getenv('DB_DEV_NAME'),
+#             'NAME': os.getenv('DB_DEV_NAME'),
 
-            'USER': os.getenv('DB_DEV_USER'),
+#             'USER': os.getenv('DB_DEV_USER'),
 
-            'PASSWORD': os.getenv('DB_DEV_PASSWORD'),
+#             'PASSWORD': os.getenv('DB_DEV_PASSWORD'),
 
-            'HOST': os.getenv('DB_DEV_HOST'),
+#             'HOST': os.getenv('DB_DEV_HOST'),
 
-            'PORT': os.getenv('DB_DEV_PORT'),
+#             'PORT': os.getenv('DB_DEV_PORT'),
 
-        }
-    }
+#         }
+#     }
 
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -142,12 +135,12 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-if not DEBUG:
-    STATIC_ROOT = BASE_DIR / 'staticfiles'
-    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# if not DEBUG:
+#     STATIC_ROOT = BASE_DIR / 'staticfiles'
+#     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-# STATIC_ROOT = BASE_DIR / 'staticfiles' # These two lines should be replaced with the above lines, if static files don't work in development
-# STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STATIC_ROOT = BASE_DIR / 'staticfiles' # These two lines should be replaced with the above lines, if static files don't work in development
+ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 STATICFILES_DIRS = [
     BASE_DIR / 'build/static'
