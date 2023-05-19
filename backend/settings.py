@@ -24,13 +24,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'cloudinary_storage',
+    'cloudinary',
     'rest_framework',
     'django_filters',
     'core.apps.CoreConfig',
     'rest_framework_simplejwt',
     'corsheaders',
-    'cloudinary_storage',
-    'cloudinary',
 ]
 
 MIDDLEWARE = [
@@ -181,15 +181,8 @@ SIMPLE_JWT = {
     'JTI_CLAIM': 'jti',
 }
 
-# cloudinary.config(
-#     cloud_name=os.getenv('CLOUDINARY_NAME'),
-#     api_key=os.getenv('CLOUDINARY_API_KEY'),
-#     api_secret=os.getenv('CLOUDINARY_API_SECRET')
-# )
-
-
-CLOUDINARY = {
-    'CLOUD_NAME': os.getenv('CLOUDINARY_NAME'),
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME':  os.getenv('CLOUDINARY_CLOUD_NAME'),
     'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
     'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
 }
