@@ -1,25 +1,21 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Prime Connect",
+  "name": "Prime Connect",
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
+      "src": "https://share.internxt.com/d/sh/file/4de6bf2708a15a6a217e/582ae1935ec98497af4c87a480b300a0265b838e54397daaeacc2b38c79ae343",
+      "sizes": "48x48 32x32 24x24 16x16",
       "type": "image/x-icon"
     },
     {
-      "src": "logo192.png",
-      "type": "image/png",
+      "src": "https://share.internxt.com/d/sh/file/9ba40c84e63cbbcdb44d/73938f863898dd7d4442fa885d5ccf25d6e007f83afd61c56820ae62b99a7de6",
+      "type": "image/x-icon",
       "sizes": "192x192"
-    },
-    {
-      "src": "logo512.png",
-      "type": "image/png",
-      "sizes": "512x512"
     }
   ],
-  "start_url": ".",
+  "start_url": "./",
+  "scope": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#588b8b",
+  "background_color": "#fafafa"
 }

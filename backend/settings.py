@@ -127,7 +127,8 @@ STATIC_URL = '/static/'
 #     STATIC_ROOT = BASE_DIR / 'staticfiles'
 #     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-STATIC_ROOT = BASE_DIR / 'staticfiles' # These two lines should be replaced with the above lines, if static files don't work in development
+# These two lines should be replaced with the above lines, if static files don't work in development
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 STATICFILES_DIRS = [
@@ -180,8 +181,15 @@ SIMPLE_JWT = {
     'JTI_CLAIM': 'jti',
 }
 
-cloudinary.config(
-    cloud_name=os.getenv('CLOUDINARY_NAME'),
-    api_key=os.getenv('CLOUDINARY_API_KEY'),
-    api_secret=os.getenv('CLOUDINARY_API_SECRET')
-)
+# cloudinary.config(
+#     cloud_name=os.getenv('CLOUDINARY_NAME'),
+#     api_key=os.getenv('CLOUDINARY_API_KEY'),
+#     api_secret=os.getenv('CLOUDINARY_API_SECRET')
+# )
+
+
+CLOUDINARY = {
+    'CLOUD_NAME': os.getenv('CLOUDINARY_NAME'),
+    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
+}
