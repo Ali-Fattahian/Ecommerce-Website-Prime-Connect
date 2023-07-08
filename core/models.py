@@ -5,6 +5,7 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseU
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
+import blurhash
 
 
 class CustomAccountManager(BaseUserManager):
@@ -88,6 +89,9 @@ class Product(models.Model):
         default='products/default-image.png', upload_to='products/', blank=True)
     image2 = models.ImageField(upload_to='products/', null=True, blank=True)
     image3 = models.ImageField(upload_to='products/', null=True, blank=True)
+    image_1_hash = models.CharField(max_length=150, blank=True, null=True)
+    image_2_hash = models.CharField(max_length=150, blank=True, null=True)
+    image_3_hash = models.CharField(max_length=150, blank=True, null=True)
     brand = models.CharField(max_length=200, default='', blank=True)
     subCategory = models.ForeignKey(
         SubCategory, on_delete=models.SET_NULL, null=True)
@@ -106,6 +110,45 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.image2 and not self.image3: # Image 1
+            print('1')
+            with self.image1.open() as image_1_file:
+                hash_1 = blurhash.encode(
+                    image_1_file, x_components=3, y_components=5)
+                self.image_1_hash = hash_1
+                super().save(*args, **kwargs)
+
+        if self.image2 and not self.image3: # Image 1 and 2
+            print('1, 2')
+            with self.image2.open() as image_2_file, self.image1.open() as image_1_file:
+                hash_1 = blurhash.encode(
+                    image_1_file, x_components=3, y_components=5)
+                self.image_1_hash = hash_1
+
+                hash_2 = blurhash.encode(
+                     image_2_file, x_components=3, y_components=5)
+                self.image_2_hash = hash_2
+            
+                super().save(*args, **kwargs)
+        
+        if self.image3 and self.image2: # Image 1, 2 and 3
+            print('1, 2, 3')
+            with self.image3.open() as image_3_file, self.image2.open() as image_2_file, self.image1.open() as image_1_file:
+                hash_1 = blurhash.encode(
+                    image_1_file, x_components=3, y_components=5)
+                self.image_1_hash = hash_1
+
+                hash_2 = blurhash.encode(
+                     image_2_file, x_components=3, y_components=5)
+                self.image_2_hash = hash_2
+
+                hash_3 = blurhash.encode(
+                     image_3_file, x_components=3, y_components=5)
+                self.image_3_hash = hash_3
+
+                super().save(*args, **kwargs)
 
 
 # ==================================================================================
@@ -159,6 +202,7 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
+    id = models.AutoField(primary_key=True, editable=False)
     product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True)
     order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True)
     name = models.CharField(max_length=200, default='', blank=True)
