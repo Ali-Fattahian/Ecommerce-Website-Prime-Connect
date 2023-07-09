@@ -1,19 +1,39 @@
 {
-  "short_name": "Prime Connect",
+  "short_name": "PrimeCon",
   "name": "Prime Connect",
   "icons": [
     {
-      "src": "https://share.internxt.com/d/sh/file/4de6bf2708a15a6a217e/582ae1935ec98497af4c87a480b300a0265b838e54397daaeacc2b38c79ae343",
-      "sizes": "48x48 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "/static/favicons/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
     },
     {
-      "src": "https://share.internxt.com/d/sh/file/9ba40c84e63cbbcdb44d/73938f863898dd7d4442fa885d5ccf25d6e007f83afd61c56820ae62b99a7de6",
-      "type": "image/x-icon",
-      "sizes": "192x192"
+      "src": "/static/favicons/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/favicons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/favicons/favicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/favicons/safari-pinned-tab.svg",
+      "sizes": "any",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/static/favicons/android-chrome-192x192.png",
+      "sizes": "any",
+      "type": "image/png"
     }
-  ],
-  "start_url": "./",
+  ],  
+  "start_url": "/",
   "scope": ".",
   "display": "standalone",
   "theme_color": "#588b8b",
